@@ -67,8 +67,6 @@ var _ = Describe("Shoot Care Control", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 
-		gardenClient = fakeclient.NewClientBuilder().WithScheme(kubernetes.GardenScheme).Build()
-
 		shootName = "shoot"
 		shootNamespace = "project"
 		seedName = "seed"
@@ -87,6 +85,8 @@ var _ = Describe("Shoot Care Control", func() {
 				},
 			},
 		}
+
+		gardenClient = fakeclient.NewClientBuilder().WithScheme(kubernetes.GardenScheme).WithStatusSubresource(shoot).Build()
 
 		fakeClock = testclock.NewFakeClock(time.Now())
 	})
