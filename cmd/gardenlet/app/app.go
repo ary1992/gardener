@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/component-base/version"
@@ -299,7 +300,7 @@ func (g *garden) Start(ctx context.Context) error {
 						// (https://github.com/kubernetes-sigs/controller-runtime/blob/116a1b831fffe7ccc3c8145306c3e1a3b1b14ffa/pkg/cache/cache.go#L202-L204).
 						// MultiNamespacedCache can only be possible when there are more than one namespace
 						// (https://github.com/kubernetes-sigs/controller-runtime/blob/116a1b831fffe7ccc3c8145306c3e1a3b1b14ffa/pkg/cache/multi_namespace_cache.go#L53-L55)
-						o.Namespaces = []string{seedNamespace, seedNamespace}
+						o.Namespaces = []string{seedNamespace}
 						return cache.New(c, o)
 					},
 					&corev1.ServiceAccount{}: func(c *rest.Config, o cache.Options) (cache.Cache, error) {
@@ -307,7 +308,7 @@ func (g *garden) Start(ctx context.Context) error {
 						// (https://github.com/kubernetes-sigs/controller-runtime/blob/116a1b831fffe7ccc3c8145306c3e1a3b1b14ffa/pkg/cache/cache.go#L202-L204).
 						// MultiNamespacedCacheBuilder can only be used when there are more than one namespace
 						// (https://github.com/kubernetes-sigs/controller-runtime/blob/116a1b831fffe7ccc3c8145306c3e1a3b1b14ffa/pkg/cache/multi_namespace_cache.go#L53-L55)
-						o.Namespaces = []string{seedNamespace, seedNamespace}
+						o.Namespaces = []string{seedNamespace}
 						return cache.New(c, o)
 					},
 					// Gardenlet does not have the required RBAC permissions for listing/watching the following
@@ -345,10 +346,25 @@ func (g *garden) Start(ctx context.Context) error {
 			if err != nil {
 				return nil, err
 			}
-
+			seedNamespace := gardenerutils.ComputeGardenNamespace(g.config.SeedConfig.SeedTemplate.Name)
 			return &kubernetes.FallbackClient{
 				Client: cachedClient,
 				Reader: uncachedClient,
+				KindToNamespaces: map[string]sets.String{
+					"Secret":                    sets.NewString(seedNamespace),
+					"ServiceAccount":            sets.NewString(seedNamespace),
+					"ConfigMap":                 nil,
+					"Namespace":                 nil,
+					"Lease":                     nil,
+					"CertificateSigningRequest": nil,
+					"CloudProfile":              nil,
+					"ControllerDeployment":      nil,
+					"ExposureClass":             nil,
+					"InternalSecret":            nil,
+					"Project":                   nil,
+					"SecretBinding":             nil,
+					"ShootState":                nil,
+				},
 			}, nil
 		}
 

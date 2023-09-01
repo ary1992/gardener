@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -375,7 +376,8 @@ var _ client.Client = &FallbackClient{}
 // in case Get/List requests with the ordinary `client.Client` fail (e.g. because of cache errors).
 type FallbackClient struct {
 	client.Client
-	Reader client.Reader
+	Reader           client.Reader
+	KindToNamespaces map[string]sets.String
 }
 
 var cacheError = &kubernetescache.CacheError{}
@@ -383,12 +385,32 @@ var cacheError = &kubernetescache.CacheError{}
 // Get retrieves an obj for a given object key from the Kubernetes Cluster.
 // In case of a cache error, the underlying API reader is used to execute the request again.
 func (d *FallbackClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-	err := d.Client.Get(ctx, key, obj)
-	if err != nil && errors.As(err, &cacheError) {
-		logf.Log.V(1).Info("Falling back to API reader because a cache error occurred", "error", err)
+	// if no kindToNamespaces is given consider that cache is created for all object for all object
+	if d.KindToNamespaces == nil {
+		return d.getObject(ctx, key, obj, opts...)
+	}
+
+	gvk, err := apiutil.GVKForObject(obj, GardenScheme)
+	if err != nil {
+		return err
+	}
+
+	namespaces, ok := d.KindToNamespaces[gvk.Kind]
+	if !ok {
 		return d.Reader.Get(ctx, key, obj)
 	}
-	return err
+
+	if namespaces.Len() == 0 || obj.GetNamespace() == "" {
+		return d.getObject(ctx, key, obj, opts...)
+	}
+
+	// object is in the namespace for which cache is created
+	if namespaces.Has(obj.GetNamespace()) {
+		return d.getObject(ctx, key, obj, opts...)
+	}
+
+	// for cluster scoped object and other cases read directly from APIReader
+	return d.Reader.Get(ctx, key, obj)
 }
 
 // List retrieves list of objects for a given namespace and list options.
@@ -398,6 +420,15 @@ func (d *FallbackClient) List(ctx context.Context, list client.ObjectList, opts 
 	if err != nil && errors.As(err, &cacheError) {
 		logf.Log.V(1).Info("Falling back to API reader because a cache error occurred", "error", err)
 		return d.Reader.List(ctx, list, opts...)
+	}
+	return err
+}
+
+func (d *FallbackClient) getObject(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	err := d.Client.Get(ctx, key, obj)
+	if err != nil && errors.As(err, &cacheError) {
+		logf.Log.V(1).Info("Falling back to API reader because a cache error occurred", "error", err)
+		return d.Reader.Get(ctx, key, obj)
 	}
 	return err
 }
