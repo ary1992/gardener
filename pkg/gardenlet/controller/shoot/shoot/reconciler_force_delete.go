@@ -141,8 +141,10 @@ func (r *Reconciler) runForceDeleteShootFlow(ctx context.Context, o *operation.O
 			Dependencies: flow.NewTaskIDs(deleteCluster),
 		})
 		setKeepObjectsForManagedResources = g.Add(flow.Task{
-			Name:         "Configuring managed resources to keep their objects when deleted",
-			Fn:           flow.TaskFn(cleaner.SetKeepObjectsForManagedResources).RetryUntilTimeout(defaultInterval, defaultTimeout),
+			Name: "Configuring managed resources to keep their objects when deleted",
+			Fn: flow.TaskFn(flow.TaskFn(func(ctx context.Context) error {
+				return botanist.SetKeepObjectsForManagedResources(ctx, false)
+			})).RetryUntilTimeout(defaultInterval, defaultTimeout),
 			Dependencies: flow.NewTaskIDs(),
 		})
 		deleteManagedResources = g.Add(flow.Task{

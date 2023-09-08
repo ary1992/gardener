@@ -72,15 +72,15 @@ func (b *Botanist) waitUntilManagedResourceAreDeleted(ctx context.Context, listO
 	return managedresources.WaitUntilListDeleted(ctx, b.SeedClientSet.Client(), &resourcesv1alpha1.ManagedResourceList{}, listOpt...)
 }
 
-// KeepObjectsForManagedResources sets ManagedResource.Spec.KeepObjects to true.
-func (b *Botanist) KeepObjectsForManagedResources(ctx context.Context) error {
+// SetKeepObjectsForManagedResources sets ManagedResource.Spec.KeepObjects.
+func (b *Botanist) SetKeepObjectsForManagedResources(ctx context.Context, keepObjects bool) error {
 	managedResources := &resourcesv1alpha1.ManagedResourceList{}
 	if err := b.SeedClientSet.Client().List(ctx, managedResources, client.InNamespace(b.Shoot.SeedNamespace), client.MatchingLabels{managedresources.LabelKeyOrigin: managedresources.LabelValueGardener}); err != nil {
 		return fmt.Errorf("failed to list all managed resource, %w", err)
 	}
 
 	for _, resource := range managedResources.Items {
-		if err := managedresources.SetKeepObjects(ctx, b.SeedClientSet.Client(), resource.Namespace, resource.Name, true); err != nil {
+		if err := managedresources.SetKeepObjects(ctx, b.SeedClientSet.Client(), resource.Namespace, resource.Name, keepObjects); err != nil {
 			return err
 		}
 	}

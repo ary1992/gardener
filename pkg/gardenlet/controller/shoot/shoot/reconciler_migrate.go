@@ -148,8 +148,10 @@ func (r *Reconciler) runMigrateShootFlow(ctx context.Context, o *operation.Opera
 			Dependencies: flow.NewTaskIDs(deployGardenerResourceManager),
 		})
 		keepManagedResourcesObjectsInShoot = g.Add(flow.Task{
-			Name:         "Configuring Managed Resources objects to be kept in the Shoot",
-			Fn:           flow.TaskFn(botanist.KeepObjectsForManagedResources).DoIf(cleanupShootResources),
+			Name: "Configuring Managed Resources objects to be kept in the Shoot",
+			Fn: flow.TaskFn(func(ctx context.Context) error {
+				return botanist.SetKeepObjectsForManagedResources(ctx, true)
+			}).DoIf(cleanupShootResources),
 			Dependencies: flow.NewTaskIDs(ensureResourceManagerScaledUp),
 		})
 		deleteManagedResources = g.Add(flow.Task{
