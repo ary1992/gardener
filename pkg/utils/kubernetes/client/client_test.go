@@ -41,7 +41,6 @@ import (
 	"github.com/gardener/gardener/pkg/utils/flow"
 	kubernetesutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	. "github.com/gardener/gardener/pkg/utils/kubernetes/client"
-	utilclient "github.com/gardener/gardener/pkg/utils/kubernetes/client"
 	mockutilclient "github.com/gardener/gardener/pkg/utils/kubernetes/client/mock"
 	"github.com/gardener/gardener/pkg/utils/test"
 	mocktime "github.com/gardener/gardener/pkg/utils/time/mock"
@@ -356,10 +355,10 @@ var _ = Describe("Cleaner", func() {
 			cleaner = NewVolumeSnapshotContentCleaner(timeOps)
 			labels = map[string]string{"action": "cleanup"}
 			cleanOps = []CleanOption{
-				utilclient.ListWith{
+				ListWith{
 					client.MatchingLabels(labels),
 				},
-				utilclient.DeleteWith{
+				DeleteWith{
 					client.GracePeriodSeconds(29),
 				},
 			}
