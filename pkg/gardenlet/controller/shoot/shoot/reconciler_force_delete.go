@@ -108,7 +108,7 @@ func (r *Reconciler) runForceDeleteShootFlow(ctx context.Context, o *operation.O
 			Fn:           flow.TaskFn(cleaner.DeleteCluster).RetryUntilTimeout(defaultInterval, defaultTimeout),
 			Dependencies: flow.NewTaskIDs(waitUntilExtensionObjectsDeleted),
 		})
-		_ = g.Add(flow.Task{
+		waitUntilClusterDeleted = g.Add(flow.Task{
 			Name:         "Waiting until Cluster resource has been deleted",
 			Fn:           cleaner.WaitUntilClusterDeleted,
 			Dependencies: flow.NewTaskIDs(deleteCluster),
@@ -118,7 +118,6 @@ func (r *Reconciler) runForceDeleteShootFlow(ctx context.Context, o *operation.O
 			Fn: flow.TaskFn(flow.TaskFn(func(ctx context.Context) error {
 				return botanist.SetKeepObjectsForManagedResources(ctx, false)
 			})).RetryUntilTimeout(defaultInterval, defaultTimeout),
-			Dependencies: flow.NewTaskIDs(),
 		})
 		deleteManagedResources = g.Add(flow.Task{
 			Name:         "Deleting managed resources",
@@ -130,10 +129,18 @@ func (r *Reconciler) runForceDeleteShootFlow(ctx context.Context, o *operation.O
 			Fn:           cleaner.WaitUntilManagedResourcesDeleted,
 			Dependencies: flow.NewTaskIDs(deleteManagedResources),
 		})
+
+		syncPoint = flow.NewTaskIDs(
+			waitUntilExtensionObjectsDeleted,
+			waitUntilMCMResourcesDeleted,
+			waitUntilClusterDeleted,
+			waitUntilManagedResourcesDeleted,
+		)
+
 		deleteEtcds = g.Add(flow.Task{
 			Name:         "Deleting Etcd resources",
 			Fn:           flow.TaskFn(botanist.DestroyEtcd).RetryUntilTimeout(defaultInterval, defaultTimeout),
-			Dependencies: flow.NewTaskIDs(),
+			Dependencies: flow.NewTaskIDs(syncPoint),
 		})
 		waitUntilEtcdsDeleted = g.Add(flow.Task{
 			Name:         "Waiting until Etcd resources have been deleted",
@@ -143,12 +150,12 @@ func (r *Reconciler) runForceDeleteShootFlow(ctx context.Context, o *operation.O
 		deleteSecrets = g.Add(flow.Task{
 			Name:         "Deleting secrets",
 			Fn:           flow.TaskFn(cleaner.DeleteSecrets).RetryUntilTimeout(defaultInterval, defaultTimeout),
-			Dependencies: flow.NewTaskIDs(waitUntilExtensionObjectsDeleted, waitUntilEtcdsDeleted, waitUntilMCMResourcesDeleted, waitUntilManagedResourcesDeleted),
+			Dependencies: flow.NewTaskIDs(syncPoint, waitUntilEtcdsDeleted),
 		})
 		deleteNamespace = g.Add(flow.Task{
 			Name:         "Deleting shoot namespace",
 			Fn:           flow.TaskFn(botanist.DeleteSeedNamespace).RetryUntilTimeout(defaultInterval, defaultTimeout),
-			Dependencies: flow.NewTaskIDs(waitUntilExtensionObjectsDeleted, waitUntilEtcdsDeleted, waitUntilMCMResourcesDeleted, waitUntilManagedResourcesDeleted, deleteSecrets),
+			Dependencies: flow.NewTaskIDs(syncPoint, waitUntilEtcdsDeleted, deleteSecrets),
 		})
 		_ = g.Add(flow.Task{
 			Name:         "Waiting until shoot namespace has been deleted",
