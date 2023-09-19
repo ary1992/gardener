@@ -148,6 +148,7 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 
 // ForceDelete force deletes the extension resource.
 func (a *actuator) ForceDelete(ctx context.Context, log logr.Logger, ex *extensionsv1alpha1.Extension) error {
+	log.Info("Deleting all test configmaps in namespace", "namespace", ex.Namespace)
 	return flow.Parallel(
 		utilclient.ForceDeleteObjects(
 			ctx,

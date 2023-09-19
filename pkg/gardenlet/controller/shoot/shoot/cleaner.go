@@ -53,7 +53,7 @@ var (
 		extensionsv1alpha1.WorkerResource:                &extensionsv1alpha1.WorkerList{},
 	}
 
-	mcmKindToObjectList = map[string]client.ObjectList{
+	machineKindToObjectList = map[string]client.ObjectList{
 		"MachineDeployment": &machinev1alpha1.MachineDeploymentList{},
 		"MachineSet":        &machinev1alpha1.MachineSetList{},
 		"MachineClass":      &machinev1alpha1.MachineClassList{},
@@ -71,14 +71,12 @@ type cleaner struct {
 }
 
 // NewCleaner creates a cleaner with the given clients and logger, for a shoot with the given namespaces and backupEntryName.
-func NewCleaner(seedClient, gardenClient client.Client, seedNamespace, projectNamespace string, backupEntryName string, log logr.Logger) *cleaner {
+func NewCleaner(seedClient, gardenClient client.Client, seedNamespace string, log logr.Logger) *cleaner {
 	return &cleaner{
-		seedClient:       seedClient,
-		gardenClient:     gardenClient,
-		seedNamespace:    seedNamespace,
-		projectNamespace: projectNamespace,
-		backupEntryName:  backupEntryName,
-		log:              log,
+		seedClient:    seedClient,
+		gardenClient:  gardenClient,
+		seedNamespace: seedNamespace,
+		log:           log,
 	}
 }
 
@@ -101,20 +99,21 @@ func (c *cleaner) WaitUntilExtensionObjectsDeleted(ctx context.Context) error {
 	}, extensionKindToObjectList)
 }
 
-// DeleteMCMResources deletes all MachineControllerManager resources in the shoot namespace.
-func (c *cleaner) DeleteMCMResources(ctx context.Context) error {
+// DeleteMachineResources deletes all MachineControllerManager resources in the shoot namespace.
+func (c *cleaner) DeleteMachineResources(ctx context.Context) error {
 	return utilclient.ApplyToObjectKinds(ctx, func(kind string, objectList client.ObjectList) flow.TaskFn {
+		c.log.Info("Deleting all resources in namespace", "namespace", c.seedNamespace, "kind", kind)
 		return utilclient.ForceDeleteObjects(ctx, c.log, c.seedClient, kind, c.seedNamespace, objectList)
-	}, mcmKindToObjectList)
+	}, machineKindToObjectList)
 }
 
-// WaitUntilMCMResourcesDeleted waits until all MachineControllerManager resources in the shoot namespace have been deleted.
-func (c *cleaner) WaitUntilMCMResourcesDeleted(ctx context.Context) error {
+// WaitUntilMachineResourcesDeleted waits until all MachineControllerManager resources in the shoot namespace have been deleted.
+func (c *cleaner) WaitUntilMachineResourcesDeleted(ctx context.Context) error {
 	return utilclient.ApplyToObjectKinds(ctx, func(kind string, objectList client.ObjectList) flow.TaskFn {
 		return func(ctx context.Context) error {
 			return kubernetesutils.WaitUntilResourcesDeleted(ctx, c.seedClient, objectList, defaultInterval, client.InNamespace(c.seedNamespace))
 		}
-	}, mcmKindToObjectList)
+	}, machineKindToObjectList)
 }
 
 // DeleteManagedResources removes all remaining finalizers and deletes all ManagedResource resources in the shoot namespace.
@@ -194,11 +193,5 @@ func (c *cleaner) finalizeShootManagedResources(ctx context.Context, namespace s
 		shootMRList.Items = append(shootMRList.Items, mr)
 	}
 
-	return utilclient.ApplyToObjects(ctx, shootMRList, func(ctx context.Context, object client.Object) error {
-		if len(object.GetFinalizers()) > 0 {
-			c.log.Info("Removing finalizers from ManagedResource", "object", client.ObjectKeyFromObject(object))
-			return controllerutils.RemoveAllFinalizers(ctx, c.seedClient, object)
-		}
-		return nil
-	})
+	return c.removeFinalizersFromObjects(ctx, c.seedNamespace, shootMRList)
 }
