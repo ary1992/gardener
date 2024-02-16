@@ -375,7 +375,12 @@ func (q *QuotaValidator) getShootResources(shoot core.Shoot) (corev1.ResourceLis
 		for _, e := range machineTypes {
 			element := e
 			if element.Name == worker.Machine.Type {
-				machineType = &element
+				coreElement := &core.MachineType{}
+				if err := gardencorev1beta1.Convert_v1beta1_MachineType_To_core_MachineType(&element, coreElement, nil); err != nil {
+					return nil, apierrors.NewInternalError(fmt.Errorf("could not convert machine type: %+v", err.Error()))
+				}
+
+				machineType = coreElement
 				break
 			}
 		}
@@ -393,7 +398,12 @@ func (q *QuotaValidator) getShootResources(shoot core.Shoot) (corev1.ResourceLis
 				for _, e := range volumeTypes {
 					element := e
 					if worker.Volume.Type != nil && element.Name == *worker.Volume.Type {
-						volumeType = &element
+						coreElement := &core.VolumeType{}
+						if err := gardencorev1beta1.Convert_v1beta1_VolumeType_To_core_VolumeType(&element, coreElement, nil); err != nil {
+							return nil, apierrors.NewInternalError(fmt.Errorf("could not convert machine type: %+v", err.Error()))
+						}
+
+						volumeType = coreElement
 						break
 					}
 				}

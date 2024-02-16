@@ -486,20 +486,6 @@ func GetSecretBindingTypes(secretBinding *core.SecretBinding) []string {
 	return strings.Split(secretBinding.Provider.Type, ",")
 }
 
-// SecretBindingHasType checks if the given SecretBinding has the given provider type.
-func SecretBindingHasType(secretBinding *core.SecretBinding, providerType string) bool {
-	if secretBinding.Provider == nil {
-		return false
-	}
-
-	types := GetSecretBindingTypes(secretBinding)
-	if len(types) == 0 {
-		return false
-	}
-
-	return sets.New(types...).Has(providerType)
-}
-
 // GetAllZonesFromShoot returns the set of all availability zones defined in the worker pools of the Shoot specification.
 func GetAllZonesFromShoot(shoot *core.Shoot) sets.Set[string] {
 	out := sets.New[string]()

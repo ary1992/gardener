@@ -787,10 +787,10 @@ var _ = Describe("helper", func() {
 		}
 
 		test := func(shoots []shootCase, expectedUsage map[string]int) {
-			var shootList []*core.Shoot
+			var shootList []*gardencorev1beta1.Shoot
 
 			for i, shoot := range shoots {
-				s := &core.Shoot{}
+				s := &gardencorev1beta1.Shoot{}
 				s.Name = fmt.Sprintf("shoot-%d", i)
 				if shoot.specSeedName != "" {
 					s.Spec.SeedName = ptr.To(shoot.specSeedName)
@@ -853,19 +853,6 @@ var _ = Describe("helper", func() {
 
 		Entry("with single-value provider type", &core.SecretBinding{Provider: &core.SecretBindingProvider{Type: "foo"}}, []string{"foo"}),
 		Entry("with multi-value provider type", &core.SecretBinding{Provider: &core.SecretBindingProvider{Type: "foo,bar,baz"}}, []string{"foo", "bar", "baz"}),
-	)
-
-	DescribeTable("#SecretBindingHasType",
-		func(secretBinding *core.SecretBinding, toFind string, expected bool) {
-			actual := SecretBindingHasType(secretBinding, toFind)
-			Expect(actual).To(Equal(expected))
-		},
-
-		Entry("with empty provider field", &core.SecretBinding{}, "foo", false),
-		Entry("when single-value provider type equals to the given type", &core.SecretBinding{Provider: &core.SecretBindingProvider{Type: "foo"}}, "foo", true),
-		Entry("when single-value provider type does not match the given type", &core.SecretBinding{Provider: &core.SecretBindingProvider{Type: "foo"}}, "bar", false),
-		Entry("when multi-value provider type contains the given type", &core.SecretBinding{Provider: &core.SecretBindingProvider{Type: "foo,bar"}}, "bar", true),
-		Entry("when multi-value provider type does not contain the given type", &core.SecretBinding{Provider: &core.SecretBindingProvider{Type: "foo,bar"}}, "baz", false),
 	)
 
 	Describe("#GetAllZonesFromShoot", func() {
