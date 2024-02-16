@@ -80,7 +80,6 @@ var _ = Describe("Miscellaneous", func() {
 	coreShoot3 := core.Shoot{}
 	err = gardencorev1beta1.Convert_v1beta1_Shoot_To_core_Shoot(&shoot3, &coreShoot3, nil)
 	Expect(err).NotTo(HaveOccurred())
-	coreShoots := []*core.Shoot{&coreShoot1, &coreShoot2, &coreShoot3}
 
 	DescribeTable("#SkipVerification",
 		func(operation admission.Operation, metadata metav1.ObjectMeta, expected bool) {
@@ -96,7 +95,7 @@ var _ = Describe("Miscellaneous", func() {
 
 	DescribeTable("#IsSeedUsedByShoot",
 		func(seedName string, expected bool) {
-			Expect(IsSeedUsedByShoot(seedName, coreShoots)).To(Equal(expected))
+			Expect(IsSeedUsedByShoot(seedName, shoots)).To(Equal(expected))
 		},
 		Entry("is used by shoot", "seed1", true),
 		Entry("is used by shoot in migration", "seed2", true),
