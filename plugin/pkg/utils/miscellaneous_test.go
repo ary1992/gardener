@@ -82,27 +82,6 @@ var _ = Describe("Miscellaneous", func() {
 	Expect(err).NotTo(HaveOccurred())
 	coreShoots := []*core.Shoot{&coreShoot1, &coreShoot2, &coreShoot3}
 
-	Describe("#ConvertList", func() {
-		It("should convert a list from pointer to non-pointer", func() {
-			expected, _ := ConvertList(shoots, func(cr *gardencorev1beta1.Shoot) (gardencorev1beta1.Shoot, error) {
-				return *cr, nil
-			})
-
-			sl := []gardencorev1beta1.Shoot{shoot1, shoot2, shoot3}
-
-			Expect(expected).To(Equal(sl))
-		})
-	})
-
-	Describe("#ConvertShootList", func() {
-		It("should convert a list of v1beta1 Shoots to core Shoots", func() {
-			expected, err := ConvertShootList(shoots)
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(expected).To(Equal(coreShoots))
-		})
-	})
-
 	DescribeTable("#SkipVerification",
 		func(operation admission.Operation, metadata metav1.ObjectMeta, expected bool) {
 			Expect(SkipVerification(operation, metadata)).To(Equal(expected))

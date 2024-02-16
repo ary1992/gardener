@@ -164,7 +164,7 @@ func TaintsHave(taints []core.SeedTaint, key string) bool {
 }
 
 // TaintsAreTolerated returns true when all the given taints are tolerated by the given tolerations.
-func TaintsAreTolerated(taints []core.SeedTaint, tolerations []core.Toleration) bool {
+func TaintsAreTolerated(taints []gardencorev1beta1.SeedTaint, tolerations []core.Toleration) bool {
 	if len(taints) == 0 {
 		return true
 	}
@@ -452,7 +452,7 @@ func ConvertSeedExternal(obj runtime.Object) (*gardencorev1beta1.Seed, error) {
 
 // CalculateSeedUsage returns a map representing the number of shoots per seed from the given list of shoots.
 // It takes both spec.seedName and status.seedName into account.
-func CalculateSeedUsage(shootList []*core.Shoot) map[string]int {
+func CalculateSeedUsage(shootList []*gardencorev1beta1.Shoot) map[string]int {
 	m := map[string]int{}
 
 	for _, shoot := range shootList {
@@ -536,46 +536,4 @@ func DeterminePrimaryIPFamily(ipFamilies []core.IPFamily) core.IPFamily {
 		return core.IPFamilyIPv4
 	}
 	return ipFamilies[0]
-}
-
-// KubeAPIServerFeatureGateDisabled returns whether the given feature gate is explicitly disabled for the kube-apiserver for the given Shoot spec.
-func KubeAPIServerFeatureGateDisabled(shoot *core.Shoot, featureGate string) bool {
-	kubeAPIServer := shoot.Spec.Kubernetes.KubeAPIServer
-	if kubeAPIServer == nil || kubeAPIServer.FeatureGates == nil {
-		return false
-	}
-
-	value, ok := kubeAPIServer.FeatureGates[featureGate]
-	if !ok {
-		return false
-	}
-	return !value
-}
-
-// KubeControllerManagerFeatureGateDisabled returns whether the given feature gate is explicitly disabled for the kube-controller-manager for the given Shoot spec.
-func KubeControllerManagerFeatureGateDisabled(shoot *core.Shoot, featureGate string) bool {
-	kubeControllerManager := shoot.Spec.Kubernetes.KubeControllerManager
-	if kubeControllerManager == nil || kubeControllerManager.FeatureGates == nil {
-		return false
-	}
-
-	value, ok := kubeControllerManager.FeatureGates[featureGate]
-	if !ok {
-		return false
-	}
-	return !value
-}
-
-// KubeProxyFeatureGateDisabled returns whether the given feature gate is disabled for the kube-proxy for the given Shoot spec.
-func KubeProxyFeatureGateDisabled(shoot *core.Shoot, featureGate string) bool {
-	kubeProxy := shoot.Spec.Kubernetes.KubeProxy
-	if kubeProxy == nil || kubeProxy.FeatureGates == nil {
-		return false
-	}
-
-	value, ok := kubeProxy.FeatureGates[featureGate]
-	if !ok {
-		return false
-	}
-	return !value
 }
