@@ -52,18 +52,19 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 	}
 
 	return c.Watch(
-		source.Kind(mgr.GetCache(), &gardencorev1beta1.ControllerInstallation{}),
-		mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapControllerInstallationToSeed), mapper.UpdateWithNew, c.GetLogger()),
-		predicateutils.RelevantConditionsChanged(
-			func(obj client.Object) []gardencorev1beta1.Condition {
-				controllerInstallation, ok := obj.(*gardencorev1beta1.ControllerInstallation)
-				if !ok {
-					return nil
-				}
-				return controllerInstallation.Status.Conditions
-			},
-			conditionsToCheck...,
-		),
+		source.Kind(mgr.GetCache(),
+			&gardencorev1beta1.ControllerInstallation{},
+			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapControllerInstallationToSeed), mapper.UpdateWithNew, c.GetLogger()),
+			predicateutils.RelevantConditionsChanged(
+				func(obj client.Object) []gardencorev1beta1.Condition {
+					controllerInstallation, ok := obj.(*gardencorev1beta1.ControllerInstallation)
+					if !ok {
+						return nil
+					}
+					return controllerInstallation.Status.Conditions
+				},
+				conditionsToCheck...,
+			)),
 	)
 }
 

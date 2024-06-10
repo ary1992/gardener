@@ -57,9 +57,10 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 			MaxConcurrentReconciles: ptr.Deref(r.Config.ConcurrentSyncs, 0),
 		}).
 		WatchesRawSource(
-			source.Kind(targetCluster.GetCache(), &corev1.Service{}),
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(r.ServicePredicate()),
+			source.Kind(targetCluster.GetCache(),
+				&corev1.Service{},
+				&handler.EnqueueRequestForObject{},
+				builder.WithPredicates(r.ServicePredicate())),
 		).
 		Build(r)
 	if err != nil {
@@ -78,18 +79,20 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 	}
 
 	if err := c.Watch(
-		source.Kind(targetCluster.GetCache(), networkPolicy),
-		mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapNetworkPolicyToService), mapper.UpdateWithNew, c.GetLogger()),
-		networkPolicyPredicate,
+		source.Kind(targetCluster.GetCache(),
+			networkPolicy,
+			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapNetworkPolicyToService), mapper.UpdateWithNew, c.GetLogger()),
+			networkPolicyPredicate),
 	); err != nil {
 		return err
 	}
 
 	if r.Config.IngressControllerSelector != nil {
 		if err := c.Watch(
-			source.Kind(targetCluster.GetCache(), &networkingv1.Ingress{}),
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapIngressToServices), mapper.UpdateWithNew, c.GetLogger()),
-			r.IngressPredicate(),
+			source.Kind(targetCluster.GetCache(),
+				&networkingv1.Ingress{},
+				mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapIngressToServices), mapper.UpdateWithNew, c.GetLogger()),
+				r.IngressPredicate()),
 		); err != nil {
 			return err
 		}
@@ -99,8 +102,9 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 	namespace.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Namespace"))
 
 	return c.Watch(
-		source.Kind(targetCluster.GetCache(), namespace),
-		mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapToAllServices), mapper.UpdateWithNew, c.GetLogger()),
+		source.Kind(targetCluster.GetCache(),
+			namespace,
+			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapToAllServices), mapper.UpdateWithNew, c.GetLogger())),
 	)
 }
 

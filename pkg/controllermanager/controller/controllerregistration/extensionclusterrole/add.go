@@ -72,9 +72,10 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 	serviceAccount.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ServiceAccount"))
 
 	return c.Watch(
-		source.Kind(mgr.GetCache(), serviceAccount),
-		mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapToMatchingClusterRoles), mapper.UpdateWithNew, c.GetLogger()),
-		r.ServiceAccountPredicate(),
+		source.Kind(mgr.GetCache(),
+			serviceAccount,
+			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapToMatchingClusterRoles), mapper.UpdateWithNew, c.GetLogger()),
+			r.ServiceAccountPredicate()),
 	)
 }
 

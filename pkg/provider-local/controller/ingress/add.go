@@ -36,7 +36,7 @@ func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 		return err
 	}
 
-	return ctrl.Watch(source.Kind(mgr.GetCache(), &networkingv1.Ingress{}), &handler.EnqueueRequestForObject{})
+	return ctrl.Watch(source.Kind(mgr.GetCache(), &networkingv1.Ingress{}, &handler.EnqueueRequestForObject{}))
 }
 
 // AddToManager adds a controller with the default Options.

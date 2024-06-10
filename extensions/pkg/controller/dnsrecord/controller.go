@@ -70,12 +70,13 @@ func Add(ctx context.Context, mgr manager.Manager, args AddArgs) error {
 	predicates := extensionspredicate.AddTypePredicate(args.Predicates, args.Type)
 	if args.IgnoreOperationAnnotation {
 		if err := ctrl.Watch(
-			source.Kind(mgr.GetCache(), &extensionsv1alpha1.Cluster{}),
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), ClusterToDNSRecordMapper(mgr, predicates), mapper.UpdateWithNew, ctrl.GetLogger()),
+			source.Kind(mgr.GetCache(),
+				&extensionsv1alpha1.Cluster{},
+				mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), ClusterToDNSRecordMapper(mgr, predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
 		); err != nil {
 			return err
 		}
 	}
 
-	return ctrl.Watch(source.Kind(mgr.GetCache(), &extensionsv1alpha1.DNSRecord{}), &handler.EnqueueRequestForObject{}, predicates...)
+	return ctrl.Watch(source.Kind(mgr.GetCache(), &extensionsv1alpha1.DNSRecord{}, &handler.EnqueueRequestForObject{}, predicates...))
 }
