@@ -41,7 +41,7 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, targetCluster cluster.Clu
 		WatchesRawSource(
 			source.Kind(targetCluster.GetCache(),
 				&corev1.Node{},
-				&handler.EnqueueRequestForObject{},
+				&handler.TypedEnqueueRequestForObject[*corev1.Node]{},
 				builder.WithPredicates(r.NodePredicate())),
 		).
 		Complete(r)

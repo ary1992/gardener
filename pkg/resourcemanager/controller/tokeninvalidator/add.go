@@ -52,7 +52,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 		WatchesRawSource(
 			source.Kind(targetCluster.GetCache(),
 				secret,
-				&handler.EnqueueRequestForObject{},
+				&handler.TypedEnqueueRequestForObject[*metav1.PartialObjectMetadata]{},
 				builder.WithPredicates(r.SecretPredicate())),
 		).
 		Build(r)

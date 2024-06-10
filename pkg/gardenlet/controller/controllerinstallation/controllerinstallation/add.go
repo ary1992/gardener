@@ -56,7 +56,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		WatchesRawSource(
 			source.Kind(gardenCluster.GetCache(),
 				&gardencorev1beta1.ControllerInstallation{},
-				&handler.EnqueueRequestForObject{},
+				&handler.TypedEnqueueRequestForObject[*gardencorev1beta1.ControllerInstallation]{},
 				builder.WithPredicates(
 					r.ControllerInstallationPredicate(),
 					r.HelmTypePredicate(ctx, gardenCluster.GetClient()),

@@ -77,5 +77,5 @@ func add(ctx context.Context, mgr manager.Manager, args AddArgs) error {
 		}
 	}
 
-	return ctrl.Watch(source.Kind(mgr.GetCache(), &extensionsv1alpha1.ContainerRuntime{}, &handler.EnqueueRequestForObject{}, predicates...))
+	return ctrl.Watch(source.Kind(mgr.GetCache(), &extensionsv1alpha1.ContainerRuntime{}, &handler.TypedEnqueueRequestForObject[*extensionsv1alpha1.ContainerRuntime]{}, predicates...))
 }

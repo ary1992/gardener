@@ -74,7 +74,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, runt
 		WatchesRawSource(
 			source.Kind(runtimeCluster.GetCache(),
 				&corev1.Namespace{},
-				&handler.EnqueueRequestForObject{},
+				&handler.TypedEnqueueRequestForObject[*corev1.Namespace]{},
 				builder.WithPredicates(predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update))),
 		).
 		Build(r)

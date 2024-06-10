@@ -79,5 +79,5 @@ func add(ctx context.Context, mgr manager.Manager, args AddArgs, predicates []pr
 		}
 	}
 
-	return ctrl.Watch(source.Kind(mgr.GetCache(), &extensionsv1alpha1.BackupBucket{}, &handler.EnqueueRequestForObject{}, predicates...))
+	return ctrl.Watch(source.Kind(mgr.GetCache(), &extensionsv1alpha1.BackupBucket{}, &handler.TypedEnqueueRequestForObject[*extensionsv1alpha1.BackupBucket]{}, predicates...))
 }

@@ -40,7 +40,7 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, sourceCluster, targetClus
 		WatchesRawSource(
 			source.Kind(targetCluster.GetCache(),
 				&certificatesv1.CertificateSigningRequest{},
-				&handler.EnqueueRequestForObject{},
+				&handler.TypedEnqueueRequestForObject[*certificatesv1.CertificateSigningRequest]{},
 				builder.WithPredicates(
 					predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update),
 					predicate.NewPredicateFuncs(func(obj client.Object) bool {

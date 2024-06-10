@@ -59,7 +59,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 		WatchesRawSource(
 			source.Kind(targetCluster.GetCache(),
 				&corev1.Service{},
-				&handler.EnqueueRequestForObject{},
+				&handler.TypedEnqueueRequestForObject[*corev1.Service]{},
 				builder.WithPredicates(r.ServicePredicate())),
 		).
 		Build(r)

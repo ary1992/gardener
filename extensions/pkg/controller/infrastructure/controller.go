@@ -73,7 +73,7 @@ func add(ctx context.Context, mgr manager.Manager, args AddArgs) error {
 
 	predicates := extensionspredicate.AddTypePredicate(args.Predicates, args.Type)
 
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &extensionsv1alpha1.Infrastructure{}, &handler.EnqueueRequestForObject{}, predicates...)); err != nil {
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &extensionsv1alpha1.Infrastructure{}, &handler.TypedEnqueueRequestForObject[*extensionsv1alpha1.Infrastructure]{}, predicates...)); err != nil {
 		return err
 	}
 

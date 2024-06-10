@@ -51,7 +51,8 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, seedCluster cluster.Clust
 		WatchesRawSource(
 			source.Kind(seedCluster.GetCache(),
 				&vpaautoscalingv1.VerticalPodAutoscaler{},
-				&handler.EnqueueRequestForObject{}, builder.WithPredicates(
+				&handler.TypedEnqueueRequestForObject[*vpaautoscalingv1.VerticalPodAutoscaler]{},
+				builder.WithPredicates(
 					vpaEvictionRequirementsManagedByControllerPredicate,
 					predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update),
 					predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}),

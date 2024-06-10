@@ -53,7 +53,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		WatchesRawSource(
 			source.Kind(gardenCluster.GetCache(),
 				&operationsv1alpha1.Bastion{},
-				&handler.EnqueueRequestForObject{},
+				&handler.TypedEnqueueRequestForObject[*operationsv1alpha1.Bastion]{},
 				builder.WithPredicates(predicate.GenerationChangedPredicate{})),
 		).
 		Build(r)

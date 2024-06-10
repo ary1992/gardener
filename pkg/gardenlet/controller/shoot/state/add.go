@@ -41,7 +41,7 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, gardenCluster, seedCluste
 		WatchesRawSource(
 			source.Kind(gardenCluster.GetCache(),
 				&gardencorev1beta1.Shoot{},
-				&handler.EnqueueRequestForObject{},
+				&handler.TypedEnqueueRequestForObject[*gardencorev1beta1.Shoot]{},
 				builder.WithPredicates(r.SeedNameChangedPredicate())),
 		).
 		Complete(r)

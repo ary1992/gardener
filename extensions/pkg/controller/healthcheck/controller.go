@@ -172,7 +172,7 @@ func add(ctx context.Context, mgr manager.Manager, args AddArgs) error {
 	// add type predicate to only watch registered resource (e.g ControlPlane) with a certain type (e.g aws)
 	predicates := extensionspredicate.AddTypePredicate(args.Predicates, args.Type)
 
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), args.registeredExtension.getExtensionObjFunc(), &handler.EnqueueRequestForObject{}, predicates...)); err != nil {
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), args.registeredExtension.getExtensionObjFunc(), &handler.TypedEnqueueRequestForObject[extensionsv1alpha1.Object]{}, predicates...)); err != nil {
 		return err
 	}
 
