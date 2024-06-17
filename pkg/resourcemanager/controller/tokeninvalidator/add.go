@@ -63,7 +63,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 	return c.Watch(
 		source.Kind(targetCluster.GetCache(),
 			&corev1.ServiceAccount{},
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapServiceAccountToSecrets), mapper.UpdateWithOldAndNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[*corev1.ServiceAccount](ctx, mgr.GetCache(), mapper.MapFunc(r.MapServiceAccountToSecrets), mapper.UpdateWithOldAndNew, c.GetLogger()),
 			r.ServiceAccountPredicate()),
 	)
 }

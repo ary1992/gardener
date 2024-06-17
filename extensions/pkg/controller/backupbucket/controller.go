@@ -73,7 +73,7 @@ func add(ctx context.Context, mgr manager.Manager, args AddArgs, predicates []pr
 					Kind:       "Secret",
 					APIVersion: "v1",
 				}},
-				mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), SecretToBackupBucketMapper(predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
+				mapper.TypedEnqueueRequestsFrom[*metav1.PartialObjectMetadata](ctx, mgr.GetCache(), SecretToBackupBucketMapper(predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
 		); err != nil {
 			return err
 		}

@@ -70,7 +70,7 @@ func add(ctx context.Context, mgr manager.Manager, args AddArgs, predicates []pr
 		if err := ctrl.Watch(
 			source.Kind(mgr.GetCache(),
 				&corev1.Namespace{},
-				mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), NamespaceToBackupEntryMapper(predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
+				mapper.TypedEnqueueRequestsFrom[*corev1.Namespace](ctx, mgr.GetCache(), NamespaceToBackupEntryMapper(predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
 		); err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func add(ctx context.Context, mgr manager.Manager, args AddArgs, predicates []pr
 					Kind:       "Secret",
 					APIVersion: "v1",
 				}},
-				mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), SecretToBackupEntryMapper(predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
+				mapper.TypedEnqueueRequestsFrom[*metav1.PartialObjectMetadata](ctx, mgr.GetCache(), SecretToBackupEntryMapper(predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
 		); err != nil {
 			return err
 		}

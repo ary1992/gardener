@@ -68,7 +68,7 @@ func AddToManager(
 		return c.Watch(
 			source.Kind(seedCluster.GetCache(),
 				&extensionsv1alpha1.Cluster{},
-				mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(reconciler.MapObjectToName), mapper.UpdateWithNew, mgr.GetLogger()),
+				mapper.TypedEnqueueRequestsFrom[*extensionsv1alpha1.Cluster](ctx, mgr.GetCache(), mapper.MapFunc(reconciler.MapObjectToName), mapper.UpdateWithNew, mgr.GetLogger()),
 				ClusterPredicate()),
 		)
 	})

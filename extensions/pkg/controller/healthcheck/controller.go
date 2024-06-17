@@ -181,7 +181,7 @@ func add(ctx context.Context, mgr manager.Manager, args AddArgs) error {
 	return ctrl.Watch(
 		source.Kind(mgr.GetCache(),
 			&extensionsv1alpha1.Cluster{},
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.ClusterToObjectMapper(mgr, args.GetExtensionObjListFunc, predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
+			mapper.TypedEnqueueRequestsFrom[*extensionsv1alpha1.Cluster](ctx, mgr.GetCache(), mapper.ClusterToObjectMapper(mgr, args.GetExtensionObjListFunc, predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
 	)
 }
 

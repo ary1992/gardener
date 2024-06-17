@@ -67,7 +67,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 	return c.Watch(
 		source.Kind(seedCluster.GetCache(),
 			&resourcesv1alpha1.ManagedResource{},
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapManagedResourceToSeed), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[*resourcesv1alpha1.ManagedResource](ctx, mgr.GetCache(), mapper.MapFunc(r.MapManagedResourceToSeed), mapper.UpdateWithNew, c.GetLogger()),
 			r.IsSystemComponent(),
 			predicateutils.ManagedResourceConditionsChanged()),
 	)

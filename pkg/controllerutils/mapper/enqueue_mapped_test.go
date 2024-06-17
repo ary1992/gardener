@@ -31,7 +31,7 @@ var _ = Describe("EnqueueMapped", func() {
 			ctx     = context.TODO()
 			mapper  Mapper
 			logger  logr.Logger
-			handler handler.EventHandler
+			handler handler.TypedEventHandler[client.Object]
 			ctrl    *gomock.Controller
 			mgr     *mockmanager.MockManager
 			cache   *mockcache.MockCache

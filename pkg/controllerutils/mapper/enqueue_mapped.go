@@ -38,13 +38,13 @@ func (f MapFunc) Map(ctx context.Context, log logr.Logger, reader client.Reader,
 	return f(ctx, log, reader, obj)
 }
 
-// EnqueueRequestsFrom is similar to controller-runtime's mapper.EnqueueRequestsFromMapFunc.
+// TypedEnqueueRequestsFrom is similar to controller-runtime's mapper.TypedEnqueueRequestsFromMapFunc.
 // Instead of taking only a MapFunc it also allows passing a Mapper interface. Also, it allows customizing the
 // behavior on UpdateEvents.
 // For UpdateEvents, the given UpdateBehavior decides if only the old, only the new or both objects should be mapped
 // and enqueued.
-func EnqueueRequestsFrom(ctx context.Context, cache cache.Cache, m Mapper, updateBehavior UpdateBehavior, log logr.Logger) handler.EventHandler {
-	return &enqueueRequestsFromMapFunc{
+func TypedEnqueueRequestsFrom[T client.Object](ctx context.Context, cache cache.Cache, m Mapper, updateBehavior UpdateBehavior, log logr.Logger) handler.TypedEventHandler[T] {
+	return &enqueueRequestsFromMapFunc[T]{
 		mapper:         m,
 		updateBehavior: updateBehavior,
 		ctx:            ctx,
@@ -53,7 +53,7 @@ func EnqueueRequestsFrom(ctx context.Context, cache cache.Cache, m Mapper, updat
 	}
 }
 
-type enqueueRequestsFromMapFunc struct {
+type enqueueRequestsFromMapFunc[T client.Object] struct {
 	// mapper transforms the argument into a slice of keys to be reconciled
 	mapper Mapper
 	// updateBehavior decides which object(s) to map and enqueue on updates
@@ -76,11 +76,11 @@ const (
 	UpdateWithNew
 )
 
-func (e *enqueueRequestsFromMapFunc) Create(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestsFromMapFunc[T]) Create(_ context.Context, evt event.TypedCreateEvent[T], q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.Object)
 }
 
-func (e *enqueueRequestsFromMapFunc) Update(_ context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestsFromMapFunc[T]) Update(_ context.Context, evt event.TypedUpdateEvent[T], q workqueue.RateLimitingInterface) {
 	switch e.updateBehavior {
 	case UpdateWithOldAndNew:
 		e.mapAndEnqueue(q, evt.ObjectOld)
@@ -92,15 +92,15 @@ func (e *enqueueRequestsFromMapFunc) Update(_ context.Context, evt event.UpdateE
 	}
 }
 
-func (e *enqueueRequestsFromMapFunc) Delete(_ context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestsFromMapFunc[T]) Delete(_ context.Context, evt event.TypedDeleteEvent[T], q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.Object)
 }
 
-func (e *enqueueRequestsFromMapFunc) Generic(_ context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestsFromMapFunc[T]) Generic(_ context.Context, evt event.TypedGenericEvent[T], q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.Object)
 }
 
-func (e *enqueueRequestsFromMapFunc) mapAndEnqueue(q workqueue.RateLimitingInterface, object client.Object) {
+func (e *enqueueRequestsFromMapFunc[T]) mapAndEnqueue(q workqueue.RateLimitingInterface, object client.Object) {
 	for _, req := range e.mapper.Map(e.ctx, e.log, e.reader, object) {
 		q.Add(req)
 	}

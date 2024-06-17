@@ -100,7 +100,7 @@ func (r *Reconciler) AddToManager(
 	return c.Watch(
 		source.Kind(gardenCluster.GetCache(),
 			&gardencorev1beta1.Seed{},
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapSeedToManagedSeed), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[*gardencorev1beta1.Seed](ctx, mgr.GetCache(), mapper.MapFunc(r.MapSeedToManagedSeed), mapper.UpdateWithNew, c.GetLogger()),
 			r.SeedOfManagedSeedPredicate(ctx, r.Config.SeedConfig.SeedTemplate.Name)),
 	)
 }

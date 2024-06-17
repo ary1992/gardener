@@ -69,7 +69,7 @@ func add(ctx context.Context, mgr manager.Manager, args AddArgs) error {
 		if err := ctrl.Watch(
 			source.Kind(mgr.GetCache(),
 				&extensionsv1alpha1.Cluster{},
-				mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), ClusterToNetworkMapper(mgr, predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
+				mapper.TypedEnqueueRequestsFrom[*extensionsv1alpha1.Cluster](ctx, mgr.GetCache(), ClusterToNetworkMapper(mgr, predicates), mapper.UpdateWithNew, ctrl.GetLogger())),
 		); err != nil {
 			return err
 		}

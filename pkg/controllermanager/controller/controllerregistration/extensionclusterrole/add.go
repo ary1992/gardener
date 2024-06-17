@@ -74,7 +74,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 	return c.Watch(
 		source.Kind(mgr.GetCache(),
 			serviceAccount,
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapToMatchingClusterRoles), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[*metav1.PartialObjectMetadata](ctx, mgr.GetCache(), mapper.MapFunc(r.MapToMatchingClusterRoles), mapper.UpdateWithNew, c.GetLogger()),
 			r.ServiceAccountPredicate()),
 	)
 }

@@ -54,7 +54,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 	return c.Watch(
 		source.Kind(mgr.GetCache(),
 			&gardencorev1beta1.ControllerInstallation{},
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapControllerInstallationToSeed), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[*gardencorev1beta1.ControllerInstallation](ctx, mgr.GetCache(), mapper.MapFunc(r.MapControllerInstallationToSeed), mapper.UpdateWithNew, c.GetLogger()),
 			predicateutils.RelevantConditionsChanged(
 				func(obj client.Object) []gardencorev1beta1.Condition {
 					controllerInstallation, ok := obj.(*gardencorev1beta1.ControllerInstallation)

@@ -85,7 +85,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, runt
 	if err := c.Watch(
 		source.Kind(runtimeCluster.GetCache(),
 			&corev1.Endpoints{},
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapToNamespaces), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[*corev1.Endpoints](ctx, mgr.GetCache(), mapper.MapFunc(r.MapToNamespaces), mapper.UpdateWithNew, c.GetLogger()),
 			r.IsKubernetesEndpoint()),
 	); err != nil {
 		return err
@@ -94,7 +94,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, runt
 	if err := c.Watch(
 		source.Kind(runtimeCluster.GetCache(),
 			&networkingv1.NetworkPolicy{},
-			mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToNamespace), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[*networkingv1.NetworkPolicy](ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToNamespace), mapper.UpdateWithNew, c.GetLogger()),
 			r.NetworkPolicyPredicate()),
 	); err != nil {
 		return err
