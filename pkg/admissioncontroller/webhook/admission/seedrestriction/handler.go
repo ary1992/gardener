@@ -59,7 +59,7 @@ var (
 type Handler struct {
 	Logger  logr.Logger
 	Client  client.Reader
-	Decoder *admission.Decoder
+	Decoder admission.Decoder
 }
 
 // Handle restricts requests made by gardenlets.
