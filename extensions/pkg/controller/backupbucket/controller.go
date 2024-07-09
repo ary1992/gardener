@@ -8,6 +8,7 @@ import (
 	"context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -60,7 +61,7 @@ func Add(ctx context.Context, mgr manager.Manager, args AddArgs) error {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(ctx context.Context, mgr manager.Manager, args AddArgs, predicates []predicate.Predicate) error {
+func add(ctx context.Context, mgr manager.Manager, args AddArgs, predicates ...predicate.TypedPredicate[client.Object]) error {
 	ctrl, err := controller.New(ControllerName, mgr, args.ControllerOptions)
 	if err != nil {
 		return err

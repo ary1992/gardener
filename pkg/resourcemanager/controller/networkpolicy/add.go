@@ -110,18 +110,11 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 
 // ServicePredicate returns a predicate which filters UPDATE events on services such that only updates to the deletion
 // timestamp, the port list, the pod label selector, or well-known annotations are relevant.
-func (r *Reconciler) ServicePredicate() predicate.Predicate {
-	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			service, ok := e.ObjectNew.(*corev1.Service)
-			if !ok {
-				return false
-			}
-
-			oldService, ok := e.ObjectOld.(*corev1.Service)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) ServicePredicate() predicate.TypedPredicate[*corev1.Service] {
+	return predicate.TypedFuncs[*corev1.Service]{
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Service]) bool {
+			service := e.ObjectNew
+			oldService := e.ObjectOld
 
 			return (oldService.DeletionTimestamp == nil && service.DeletionTimestamp != nil) ||
 				!apiequality.Semantic.DeepEqual(service.Spec.Selector, oldService.Spec.Selector) ||
@@ -159,18 +152,11 @@ func fromPolicyAnnotationsChanged(oldAnnotations, newAnnotations map[string]stri
 
 // IngressPredicate returns a predicate which filters UPDATE events on Ingresses such that only updates to the rules
 // are relevant.
-func (r *Reconciler) IngressPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			ingress, ok := e.ObjectNew.(*networkingv1.Ingress)
-			if !ok {
-				return false
-			}
-
-			oldIngress, ok := e.ObjectOld.(*networkingv1.Ingress)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) IngressPredicate() predicate.TypedPredicate[*networkingv1.Ingress] {
+	return predicate.TypedFuncs[*networkingv1.Ingress]{
+		UpdateFunc: func(e event.TypedUpdateEvent[*networkingv1.Ingress]) bool {
+			ingress := e.ObjectNew
+			oldIngress := e.ObjectOld
 
 			return !apiequality.Semantic.DeepEqual(oldIngress.Spec.Rules, ingress.Spec.Rules)
 		},

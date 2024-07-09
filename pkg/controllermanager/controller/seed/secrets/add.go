@@ -55,7 +55,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 	}
 
 	return c.Watch(
-		source.Kind(mgr.GetCache(),
+		source.Kind[*corev1.Secret](mgr.GetCache(),
 			&corev1.Secret{},
 			mapper.TypedEnqueueRequestsFrom[*corev1.Secret](ctx, mgr.GetCache(), mapper.MapFunc(r.MapToAllSeeds), mapper.UpdateWithNew, c.GetLogger()),
 			r.GardenSecretPredicate(),
@@ -70,31 +70,19 @@ var (
 
 // GardenSecretPredicate returns true for all events when the respective secret is in the garden namespace and has a
 // gardener.cloud/role label.
-func (r *Reconciler) GardenSecretPredicate() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		secret, ok := obj.(*corev1.Secret)
-		if !ok {
-			return false
-		}
-
-		return secret.Namespace == r.GardenNamespace &&
-			gardenRoleSelector.Matches(labels.Set(secret.Labels))
+func (r *Reconciler) GardenSecretPredicate() predicate.TypedPredicate[*corev1.Secret] {
+	return predicate.NewTypedPredicateFuncs[*corev1.Secret](func(obj *corev1.Secret) bool {
+		return obj.Namespace == r.GardenNamespace &&
+			gardenRoleSelector.Matches(labels.Set(obj.Labels))
 	})
 }
 
 // SecretPredicate returns true for all events. For 'UPDATE' events, it only returns true when the secret has changed.
-func (r *Reconciler) SecretPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			secret, ok := e.ObjectNew.(*corev1.Secret)
-			if !ok {
-				return false
-			}
-
-			oldSecret, ok := e.ObjectOld.(*corev1.Secret)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) SecretPredicate() predicate.TypedPredicate[*corev1.Secret] {
+	return predicate.TypedFuncs[*corev1.Secret]{
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
+			secret := e.ObjectNew
+			oldSecret := e.ObjectOld
 
 			return !apiequality.Semantic.DeepEqual(oldSecret, secret)
 		},

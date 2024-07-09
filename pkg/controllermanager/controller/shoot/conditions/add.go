@@ -58,18 +58,11 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 }
 
 // SeedPredicate reacts on Seed events that indicate that the conditions of the registered Seed changed.
-func (r *Reconciler) SeedPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			seed, ok := e.ObjectNew.(*gardencorev1beta1.Seed)
-			if !ok {
-				return false
-			}
-
-			oldSeed, ok := e.ObjectOld.(*gardencorev1beta1.Seed)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) SeedPredicate() predicate.TypedPredicate[*gardencorev1beta1.Seed] {
+	return predicate.TypedFuncs[*gardencorev1beta1.Seed]{
+		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.Seed]) bool {
+			seed := e.ObjectNew
+			oldSeed := e.ObjectOld
 
 			if !apiequality.Semantic.DeepEqual(seed.Status.Conditions, oldSeed.Status.Conditions) {
 				return true

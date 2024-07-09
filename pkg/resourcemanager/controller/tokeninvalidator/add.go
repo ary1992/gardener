@@ -83,25 +83,18 @@ func (r *Reconciler) SecretPredicate() predicate.Predicate {
 }
 
 // ServiceAccountPredicate returns the predicate for service accounts.
-func (r *Reconciler) ServiceAccountPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(_ event.CreateEvent) bool { return false },
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldSA, ok := e.ObjectOld.(*corev1.ServiceAccount)
-			if !ok {
-				return false
-			}
-
-			newSA, ok := e.ObjectNew.(*corev1.ServiceAccount)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) ServiceAccountPredicate() predicate.TypedPredicate[*corev1.ServiceAccount] {
+	return predicate.TypedFuncs[*corev1.ServiceAccount]{
+		CreateFunc: func(_ event.TypedCreateEvent[*corev1.ServiceAccount]) bool { return false },
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.ServiceAccount]) bool {
+			oldSA := e.ObjectOld
+			newSA := e.ObjectNew
 
 			return !apiequality.Semantic.DeepEqual(oldSA.AutomountServiceAccountToken, newSA.AutomountServiceAccountToken) ||
 				oldSA.Labels[resourcesv1alpha1.StaticTokenSkip] != newSA.Labels[resourcesv1alpha1.StaticTokenSkip]
 		},
-		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
-		GenericFunc: func(_ event.GenericEvent) bool { return false },
+		DeleteFunc:  func(_ event.TypedDeleteEvent[*corev1.ServiceAccount]) bool { return false },
+		GenericFunc: func(_ event.TypedGenericEvent[*corev1.ServiceAccount]) bool { return false },
 	}
 }
 

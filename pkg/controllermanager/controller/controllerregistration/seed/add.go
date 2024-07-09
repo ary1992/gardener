@@ -107,18 +107,11 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 
 // SeedPredicate returns true for all Seed events except for updates. Here, it returns true when there is a change
 // in the spec or labels or annotations or when the deletion timestamp is set.
-func (r *Reconciler) SeedPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			seed, ok := e.ObjectNew.(*gardencorev1beta1.Seed)
-			if !ok {
-				return false
-			}
-
-			oldSeed, ok := e.ObjectOld.(*gardencorev1beta1.Seed)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) SeedPredicate() predicate.TypedPredicate[*gardencorev1beta1.Seed] {
+	return predicate.TypedFuncs[*gardencorev1beta1.Seed]{
+		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.Seed]) bool {
+			seed := e.ObjectNew
+			oldSeed := e.ObjectOld
 
 			return !apiequality.Semantic.DeepEqual(oldSeed.Spec, seed.Spec) ||
 				!apiequality.Semantic.DeepEqual(oldSeed.Annotations, seed.Annotations) ||
@@ -130,36 +123,25 @@ func (r *Reconciler) SeedPredicate() predicate.Predicate {
 
 // BackupBucketPredicate returns true for all BackupBucket events when there is a non-nil .spec.seedName. For updates,
 // it only returns true when there is a change in the .spec.seedName or .spec.provider.type fields.
-func (r *Reconciler) BackupBucketPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			backupBucket, ok := e.Object.(*gardencorev1beta1.BackupBucket)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) BackupBucketPredicate() predicate.TypedPredicate[*gardencorev1beta1.BackupBucket] {
+	return predicate.TypedFuncs[*gardencorev1beta1.BackupBucket]{
+		CreateFunc: func(e event.TypedCreateEvent[*gardencorev1beta1.BackupBucket]) bool {
+			backupBucket := e.Object
+
 			return backupBucket.Spec.SeedName != nil
 		},
 
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			backupBucket, ok := e.ObjectNew.(*gardencorev1beta1.BackupBucket)
-			if !ok {
-				return false
-			}
-
-			oldBackupBucket, ok := e.ObjectOld.(*gardencorev1beta1.BackupBucket)
-			if !ok {
-				return false
-			}
+		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]) bool {
+			backupBucket := e.ObjectNew
+			oldBackupBucket := e.ObjectOld
 
 			return !apiequality.Semantic.DeepEqual(oldBackupBucket.Spec.SeedName, backupBucket.Spec.SeedName) ||
 				oldBackupBucket.Spec.Provider.Type != backupBucket.Spec.Provider.Type
 		},
 
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			backupBucket, ok := e.Object.(*gardencorev1beta1.BackupBucket)
-			if !ok {
-				return false
-			}
+		DeleteFunc: func(e event.TypedDeleteEvent[*gardencorev1beta1.BackupBucket]) bool {
+			backupBucket := e.Object
+
 			return backupBucket.Spec.SeedName != nil
 		},
 	}
@@ -167,36 +149,25 @@ func (r *Reconciler) BackupBucketPredicate() predicate.Predicate {
 
 // BackupEntryPredicate returns true for all BackupEntry events when there is a non-nil .spec.seedName. For updates,
 // it only returns true when there is a change in the .spec.seedName or .spec.bucketName fields.
-func (r *Reconciler) BackupEntryPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			backupEntry, ok := e.Object.(*gardencorev1beta1.BackupEntry)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) BackupEntryPredicate() predicate.TypedPredicate[*gardencorev1beta1.BackupEntry] {
+	return predicate.TypedFuncs[*gardencorev1beta1.BackupEntry]{
+		CreateFunc: func(e event.TypedCreateEvent[*gardencorev1beta1.BackupEntry]) bool {
+			backupEntry := e.Object
+
 			return backupEntry.Spec.SeedName != nil
 		},
 
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			backupEntry, ok := e.ObjectNew.(*gardencorev1beta1.BackupEntry)
-			if !ok {
-				return false
-			}
-
-			oldBackupEntry, ok := e.ObjectOld.(*gardencorev1beta1.BackupEntry)
-			if !ok {
-				return false
-			}
+		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.BackupEntry]) bool {
+			backupEntry := e.ObjectNew
+			oldBackupEntry := e.ObjectOld
 
 			return !apiequality.Semantic.DeepEqual(oldBackupEntry.Spec.SeedName, backupEntry.Spec.SeedName) ||
 				oldBackupEntry.Spec.BucketName != backupEntry.Spec.BucketName
 		},
 
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			backupEntry, ok := e.Object.(*gardencorev1beta1.BackupEntry)
-			if !ok {
-				return false
-			}
+		DeleteFunc: func(e event.TypedDeleteEvent[*gardencorev1beta1.BackupEntry]) bool {
+			backupEntry := e.Object
+
 			return backupEntry.Spec.SeedName != nil
 		},
 	}
@@ -205,26 +176,17 @@ func (r *Reconciler) BackupEntryPredicate() predicate.Predicate {
 // ShootPredicate returns true for all Shoot events when there is a non-nil .spec.seedName. For updates, it only returns
 // true when there is a change in the .spec.seedName or .spec.provider.workers or .spec.extensions or .spec.dns or
 // .spec.networking.type or .spec.provider.type fields.
-func (r *Reconciler) ShootPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			shoot, ok := e.Object.(*gardencorev1beta1.Shoot)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) ShootPredicate() predicate.TypedPredicate[*gardencorev1beta1.Shoot] {
+	return predicate.TypedFuncs[*gardencorev1beta1.Shoot]{
+		CreateFunc: func(e event.TypedCreateEvent[*gardencorev1beta1.Shoot]) bool {
+			shoot := e.Object
+
 			return shoot.Spec.SeedName != nil
 		},
 
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			shoot, ok := e.ObjectNew.(*gardencorev1beta1.Shoot)
-			if !ok {
-				return false
-			}
-
-			oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
-			if !ok {
-				return false
-			}
+		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.Shoot]) bool {
+			shoot := e.ObjectNew
+			oldShoot := e.ObjectOld
 
 			return !apiequality.Semantic.DeepEqual(oldShoot.Spec.SeedName, shoot.Spec.SeedName) ||
 				!apiequality.Semantic.DeepEqual(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers) ||
@@ -234,11 +196,9 @@ func (r *Reconciler) ShootPredicate() predicate.Predicate {
 				oldShoot.Spec.Provider.Type != shoot.Spec.Provider.Type
 		},
 
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			shoot, ok := e.Object.(*gardencorev1beta1.Shoot)
-			if !ok {
-				return false
-			}
+		DeleteFunc: func(e event.TypedDeleteEvent[*gardencorev1beta1.Shoot]) bool {
+			shoot := e.Object
+
 			return shoot.Spec.SeedName != nil
 		},
 	}
@@ -246,24 +206,17 @@ func (r *Reconciler) ShootPredicate() predicate.Predicate {
 
 // ControllerInstallationPredicate returns true for all ControllerInstallation 'create' events. For updates, it only
 // returns true when the Required condition's status has changed. For other events, false is returned.
-func (r *Reconciler) ControllerInstallationPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(_ event.CreateEvent) bool { return true },
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			controllerInstallation, ok := e.ObjectNew.(*gardencorev1beta1.ControllerInstallation)
-			if !ok {
-				return false
-			}
-
-			oldControllerInstallation, ok := e.ObjectOld.(*gardencorev1beta1.ControllerInstallation)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) ControllerInstallationPredicate() predicate.TypedPredicate[*gardencorev1beta1.ControllerInstallation] {
+	return predicate.TypedFuncs[*gardencorev1beta1.ControllerInstallation]{
+		CreateFunc: func(_ event.TypedCreateEvent[*gardencorev1beta1.ControllerInstallation]) bool { return true },
+		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.ControllerInstallation]) bool {
+			controllerInstallation := e.ObjectNew
+			oldControllerInstallation := e.ObjectOld
 
 			return v1beta1helper.IsControllerInstallationRequired(*oldControllerInstallation) != v1beta1helper.IsControllerInstallationRequired(*controllerInstallation)
 		},
-		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
-		GenericFunc: func(_ event.GenericEvent) bool { return false },
+		DeleteFunc:  func(_ event.TypedDeleteEvent[*gardencorev1beta1.ControllerInstallation]) bool { return false },
+		GenericFunc: func(_ event.TypedGenericEvent[*gardencorev1beta1.ControllerInstallation]) bool { return false },
 	}
 }
 

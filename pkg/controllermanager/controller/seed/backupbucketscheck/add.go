@@ -62,33 +62,24 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 
 // BackupBucketPredicate reacts only on 'CREATE' and 'UPDATE' events. It returns false if .spec.seedName == nil. For
 // updates, it only returns true when the .stauts.lastError changed.
-func (r *Reconciler) BackupBucketPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			backupBucket, ok := e.Object.(*gardencorev1beta1.BackupBucket)
-			if !ok {
-				return false
-			}
+func (r *Reconciler) BackupBucketPredicate() predicate.TypedPredicate[*gardencorev1beta1.BackupBucket] {
+	return predicate.TypedFuncs[*gardencorev1beta1.BackupBucket]{
+		CreateFunc: func(e event.TypedCreateEvent[*gardencorev1beta1.BackupBucket]) bool {
+			backupBucket := e.Object
+
 			return backupBucket.Spec.SeedName != nil
 		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			backupBucket, ok := e.ObjectNew.(*gardencorev1beta1.BackupBucket)
-			if !ok {
-				return false
-			}
-
-			oldBackupBucket, ok := e.ObjectOld.(*gardencorev1beta1.BackupBucket)
-			if !ok {
-				return false
-			}
+		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]) bool {
+			backupBucket := e.ObjectNew
+			oldBackupBucket := e.ObjectOld
 
 			if backupBucket.Spec.SeedName == nil {
 				return false
 			}
 			return lastErrorChanged(oldBackupBucket.Status.LastError, backupBucket.Status.LastError)
 		},
-		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
-		GenericFunc: func(_ event.GenericEvent) bool { return false },
+		DeleteFunc:  func(_ event.TypedDeleteEvent[*gardencorev1beta1.BackupBucket]) bool { return false },
+		GenericFunc: func(_ event.TypedGenericEvent[*gardencorev1beta1.BackupBucket]) bool { return false },
 	}
 }
 
