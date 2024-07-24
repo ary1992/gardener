@@ -25,6 +25,7 @@ import (
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	seedmanagementv1alpha1 "github.com/gardener/gardener/pkg/apis/seedmanagement/v1alpha1"
 	"github.com/gardener/gardener/pkg/controllerutils/mapper"
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
@@ -280,7 +281,7 @@ func (p *managedSeedPredicate) getManagedSeedSetPendingReplicaReason(managedSeed
 }
 
 // SeedPredicate returns the predicate for Seed events.
-func (r *Reconciler) SeedPredicate(ctx context.Context) predicate.Predicate {
+func (r *Reconciler) SeedPredicate(ctx context.Context) predicate.TypedPredicate[*gardencorev1beta1.Seed] {
 	return &seedPredicate{
 		ctx:    ctx,
 		reader: r.Client,
@@ -292,16 +293,18 @@ type seedPredicate struct {
 	reader client.Reader
 }
 
-func (p *seedPredicate) Create(e event.CreateEvent) bool { return p.filterSeed(e.Object) }
+func (p *seedPredicate) Create(e event.TypedCreateEvent[*gardencorev1beta1.Seed]) bool {
+	return p.filterSeed(e.Object)
+}
 
-func (p *seedPredicate) Update(e event.UpdateEvent) bool {
-	seed, ok := e.ObjectNew.(*gardencorev1beta1.Seed)
-	if !ok {
+func (p *seedPredicate) Update(e event.TypedUpdateEvent[*gardencorev1beta1.Seed]) bool {
+	seed := e.ObjectNew
+	if v1beta1helper.IsNil(seed) {
 		return false
 	}
 
-	oldSeed, ok := e.ObjectOld.(*gardencorev1beta1.Seed)
-	if !ok {
+	oldSeed := e.ObjectOld
+	if v1beta1helper.IsNil(oldSeed) {
 		return false
 	}
 
@@ -312,9 +315,13 @@ func (p *seedPredicate) Update(e event.UpdateEvent) bool {
 	return p.filterSeed(e.ObjectNew)
 }
 
-func (p *seedPredicate) Delete(e event.DeleteEvent) bool { return p.filterSeed(e.Object) }
+func (p *seedPredicate) Delete(e event.TypedDeleteEvent[*gardencorev1beta1.Seed]) bool {
+	return p.filterSeed(e.Object)
+}
 
-func (p *seedPredicate) Generic(_ event.GenericEvent) bool { return false }
+func (p *seedPredicate) Generic(_ event.TypedGenericEvent[*gardencorev1beta1.Seed]) bool {
+	return false
+}
 
 // Returns true only if the Seed belongs to the pending replica and it progressed from the state
 // that caused the replica to be pending.

@@ -23,6 +23,7 @@ import (
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/controllerutils/mapper"
 	predicateutils "github.com/gardener/gardener/pkg/controllerutils/predicate"
@@ -49,6 +50,11 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		r.GardenNamespace = v1beta1constants.GardenNamespace
 	}
 
+	predicates := []predicate.TypedPredicate[*gardencorev1beta1.BackupBucket]{
+		predicate.TypedGenerationChangedPredicate[*gardencorev1beta1.BackupBucket]{},
+		r.SeedNamePredicate(),
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -60,12 +66,8 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 			source.Kind(gardenCluster.GetCache(),
 				&gardencorev1beta1.BackupBucket{},
 				&handler.TypedEnqueueRequestForObject[*gardencorev1beta1.BackupBucket]{},
-				builder.WithPredicates(
-					&predicate.GenerationChangedPredicate{},
-					r.SeedNamePredicate(),
-				)),
-		).
-		Build(r)
+				predicates...,
+			)).Build(r)
 	if err != nil {
 		return err
 	}
@@ -74,18 +76,18 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		source.Kind(seedCluster.GetCache(),
 			&extensionsv1alpha1.BackupBucket{},
 			mapper.TypedEnqueueRequestsFrom[*extensionsv1alpha1.BackupBucket](ctx, mgr.GetCache(), mapper.MapFunc(r.MapExtensionBackupBucketToCoreBackupBucket), mapper.UpdateWithNew, c.GetLogger()),
-			predicateutils.LastOperationChanged(predicateutils.GetExtensionLastOperation)),
+			predicateutils.LastOperationChanged[*extensionsv1alpha1.BackupBucket](predicateutils.GetExtensionLastOperation)),
 	)
 }
 
 // SeedNamePredicate returns a predicate which returns true when the object belongs to this seed.
-func (r *Reconciler) SeedNamePredicate() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		backupBucket, ok := obj.(*gardencorev1beta1.BackupBucket)
-		if !ok {
+func (r *Reconciler) SeedNamePredicate() predicate.TypedPredicate[*gardencorev1beta1.BackupBucket] {
+	return predicate.NewTypedPredicateFuncs[*gardencorev1beta1.BackupBucket](func(obj *gardencorev1beta1.BackupBucket) bool {
+		if v1beta1helper.IsNil(obj) {
 			return false
 		}
-		return ptr.Deref(backupBucket.Spec.SeedName, "") == r.SeedName
+
+		return ptr.Deref(obj.Spec.SeedName, "") == r.SeedName
 	})
 }
 

@@ -35,7 +35,7 @@ type AddArgs struct {
 	ControllerOptions controller.Options
 	// Predicates are the predicates to use.
 	// If unset, GenerationChangedPredicate will be used.
-	Predicates []predicate.Predicate
+	Predicates []predicate.TypedPredicate[*extensionsv1alpha1.DNSRecord]
 	// Type is the type of the resource considered for reconciliation.
 	Type string
 	// IgnoreOperationAnnotation specifies whether to ignore the operation annotation or not.
@@ -45,15 +45,15 @@ type AddArgs struct {
 }
 
 // DefaultPredicates returns the default predicates for a dnsrecord reconciler.
-func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.Predicate {
+func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.TypedPredicate[*extensionsv1alpha1.DNSRecord] {
 	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation,
 		// Special case for preconditions for the DNSRecord controller: Some DNSRecord resources are created in the
 		// 'garden' namespace and don't belong to a Shoot. Most other DNSRecord resources are created in regular shoot
 		// namespaces (in such cases we want to check whether the respective Shoot is failed). Consequently, we add both
 		// preconditions and ensure at least one of them applies.
-		predicate.Or(
-			extensionspredicate.IsInGardenNamespacePredicate,
-			extensionspredicate.ShootNotFailedPredicate(ctx, mgr),
+		predicate.Or[*extensionsv1alpha1.DNSRecord](
+			extensionspredicate.IsInGardenNamespace[*extensionsv1alpha1.DNSRecord](),
+			extensionspredicate.ShootNotFailedPredicate[*extensionsv1alpha1.DNSRecord](ctx, mgr),
 		),
 	)
 }

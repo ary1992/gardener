@@ -56,7 +56,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 		source.Kind(mgr.GetCache(),
 			&gardencorev1beta1.ControllerRegistration{},
 			mapper.TypedEnqueueRequestsFrom[*gardencorev1beta1.ControllerRegistration](ctx, mgr.GetCache(), mapper.MapFunc(r.MapToAllSeeds), mapper.UpdateWithNew, c.GetLogger()),
-			predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update)),
+			predicateutils.TypedForEventTypes[*gardencorev1beta1.ControllerRegistration](predicateutils.Create, predicateutils.Update)),
 	); err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 		source.Kind(mgr.GetCache(),
 			&gardencorev1.ControllerDeployment{},
 			mapper.TypedEnqueueRequestsFrom[*gardencorev1.ControllerDeployment](ctx, mgr.GetCache(), mapper.MapFunc(r.MapControllerDeploymentToAllSeeds), mapper.UpdateWithNew, c.GetLogger()),
-			predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update)),
+			predicateutils.TypedForEventTypes[*gardencorev1.ControllerDeployment](predicateutils.Create, predicateutils.Update)),
 	); err != nil {
 		return err
 	}
@@ -107,11 +107,18 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 
 // SeedPredicate returns true for all Seed events except for updates. Here, it returns true when there is a change
 // in the spec or labels or annotations or when the deletion timestamp is set.
-func (r *Reconciler) SeedPredicate() predicate.TypedPredicate[*gardencorev1beta1.Seed] {
-	return predicate.TypedFuncs[*gardencorev1beta1.Seed]{
-		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.Seed]) bool {
-			seed := e.ObjectNew
-			oldSeed := e.ObjectOld
+func (r *Reconciler) SeedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			seed, ok := e.ObjectNew.(*gardencorev1beta1.Seed)
+			if !ok {
+				return false
+			}
+
+			oldSeed, ok := e.ObjectOld.(*gardencorev1beta1.Seed)
+			if !ok {
+				return false
+			}
 
 			return !apiequality.Semantic.DeepEqual(oldSeed.Spec, seed.Spec) ||
 				!apiequality.Semantic.DeepEqual(oldSeed.Annotations, seed.Annotations) ||

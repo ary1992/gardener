@@ -56,9 +56,9 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 	}
 
 	if err := c.Watch(
-		source.Kind(mgr.GetCache(),
+		source.Kind[client.Object](mgr.GetCache(),
 			&gardencorev1beta1.Shoot{},
-			mapper.TypedEnqueueRequestsFrom[*gardencorev1beta1.Shoot](ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToProject), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[client.Object](ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToProject), mapper.UpdateWithNew, c.GetLogger()),
 			r.OnlyNewlyCreatedObjects(),
 			predicate.GenerationChangedPredicate{}),
 	); err != nil {
@@ -66,9 +66,9 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 	}
 
 	if err := c.Watch(
-		source.Kind(mgr.GetCache(),
+		source.Kind[client.Object](mgr.GetCache(),
 			&gardencorev1beta1.BackupEntry{},
-			mapper.TypedEnqueueRequestsFrom[*gardencorev1beta1.BackupEntry](ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToProject), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[client.Object](ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToProject), mapper.UpdateWithNew, c.GetLogger()),
 			r.OnlyNewlyCreatedObjects(),
 			predicate.GenerationChangedPredicate{}),
 	); err != nil {
@@ -76,9 +76,9 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 	}
 
 	if err := c.Watch(
-		source.Kind(mgr.GetCache(),
+		source.Kind[client.Object](mgr.GetCache(),
 			&gardencorev1beta1.Quota{},
-			mapper.TypedEnqueueRequestsFrom[*gardencorev1beta1.Quota](ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToProject), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[client.Object](ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToProject), mapper.UpdateWithNew, c.GetLogger()),
 			r.OnlyNewlyCreatedObjects(),
 			r.NeedsSecretBindingReferenceLabelPredicate()),
 	); err != nil {
@@ -86,9 +86,9 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 	}
 
 	return c.Watch(
-		source.Kind(mgr.GetCache(),
+		source.Kind[client.Object](mgr.GetCache(),
 			&corev1.Secret{},
-			mapper.TypedEnqueueRequestsFrom[*corev1.Secret](ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToProject), mapper.UpdateWithNew, c.GetLogger()),
+			mapper.TypedEnqueueRequestsFrom[client.Object](ctx, mgr.GetCache(), mapper.MapFunc(r.MapObjectToProject), mapper.UpdateWithNew, c.GetLogger()),
 			r.OnlyNewlyCreatedObjects(),
 			r.NeedsSecretBindingReferenceLabelPredicate()),
 	)

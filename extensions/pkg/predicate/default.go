@@ -5,6 +5,8 @@
 package predicate
 
 import (
+	"reflect"
+
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -17,68 +19,69 @@ import (
 
 // DefaultControllerPredicates returns the default predicates for extension controllers. If the operation annotation
 // is ignored then the only returned predicate is the 'GenerationChangedPredicate'.
-func DefaultControllerPredicates(ignoreOperationAnnotation bool, preconditions ...predicate.Predicate) []predicate.Predicate {
+func DefaultControllerPredicates[T client.Object](ignoreOperationAnnotation bool, preconditions ...predicate.TypedPredicate[T]) []predicate.TypedPredicate[T] {
 	if ignoreOperationAnnotation {
-		return append(preconditions, predicate.GenerationChangedPredicate{})
+		return append(preconditions, predicate.TypedGenerationChangedPredicate[T]{})
 	}
-	return append(preconditions, defaultControllerPredicate)
-}
 
-var defaultControllerPredicate = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		if e.Object == nil {
+	var defaultControllerPredicate = predicate.TypedFuncs[T]{
+		CreateFunc: func(e event.TypedCreateEvent[T]) bool {
+			if isNil(e.Object) {
+				return false
+			}
+
+			// If a relevant operation annotation is present then we admit reconciliation.
+			if hasOperationAnnotation(e.Object) {
+				return true
+			}
+
+			// If the object's deletion timestamp is set then we admit reconciliation.
+			// Note that while an object cannot be created with a deletion timestamp, on startup, the controller receives
+			// ADD/CREATE events for all existing objects which might already have a deletion timestamp.
+			if e.Object.GetDeletionTimestamp() != nil {
+				return true
+			}
+
+			// If the last operation does not indicate success then we admit reconciliation. This also means triggers if the
+			// last operation is not yet set.
+			// Note that this check is only performed for CREATE events in order to trigger a retry after controller restart.
+			// If it also reacted on UPDATE events the controller would constantly enqueue the resource when other updates
+			// (like status changes) happen, i.e., it might trigger itself endlessly when a previous reconciliation failed
+			// (since it updated the last operation to 'error').
+			if lastOperationNotSuccessful(e.Object) {
+				return true
+			}
+
+			// If none of the above conditions applies then reconciliation is not allowed.
 			return false
-		}
+		},
 
-		// If a relevant operation annotation is present then we admit reconciliation.
-		if hasOperationAnnotation(e.Object) {
-			return true
-		}
+		UpdateFunc: func(e event.TypedUpdateEvent[T]) bool {
+			// If a relevant operation annotation is present then we admit reconciliation. The OperationAnnotationWrapper
+			// ensures that this annotation is removed right after the reconciler has picked up the object. This prevents
+			// that both the OperationAnnotationWrapper and the reconciler endlessly trigger further events when removing
+			// the annotation or updating the status.
+			if hasOperationAnnotation(e.ObjectNew) {
+				return true
+			}
 
-		// If the object's deletion timestamp is set then we admit reconciliation.
-		// Note that while an object cannot be created with a deletion timestamp, on startup, the controller receives
-		// ADD/CREATE events for all existing objects which might already have a deletion timestamp.
-		if e.Object.GetDeletionTimestamp() != nil {
-			return true
-		}
+			// If the object's deletion timestamp is set and the status has not changed then we admit reconciliation. This
+			// covers the actual delete request (which once increases the generation) and further updates (e.g., when
+			// gardenlet updates the timestamp annotation). It prevents that the controller triggers itself endlessly when
+			// updating the status while the deletion timestamp is set.
+			if e.ObjectNew.GetDeletionTimestamp() != nil && statusEqual(e.ObjectOld, e.ObjectNew) {
+				return true
+			}
 
-		// If the last operation does not indicate success then we admit reconciliation. This also means triggers if the
-		// last operation is not yet set.
-		// Note that this check is only performed for CREATE events in order to trigger a retry after controller restart.
-		// If it also reacted on UPDATE events the controller would constantly enqueue the resource when other updates
-		// (like status changes) happen, i.e., it might trigger itself endlessly when a previous reconciliation failed
-		// (since it updated the last operation to 'error').
-		if lastOperationNotSuccessful(e.Object) {
-			return true
-		}
+			// If none of the above conditions applies then reconciliation is not allowed.
+			return false
+		},
 
-		// If none of the above conditions applies then reconciliation is not allowed.
-		return false
-	},
+		DeleteFunc:  func(event.TypedDeleteEvent[T]) bool { return false },
+		GenericFunc: func(event.TypedGenericEvent[T]) bool { return false },
+	}
 
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		// If a relevant operation annotation is present then we admit reconciliation. The OperationAnnotationWrapper
-		// ensures that this annotation is removed right after the reconciler has picked up the object. This prevents
-		// that both the OperationAnnotationWrapper and the reconciler endlessly trigger further events when removing
-		// the annotation or updating the status.
-		if hasOperationAnnotation(e.ObjectNew) {
-			return true
-		}
-
-		// If the object's deletion timestamp is set and the status has not changed then we admit reconciliation. This
-		// covers the actual delete request (which once increases the generation) and further updates (e.g., when
-		// gardenlet updates the timestamp annotation). It prevents that the controller triggers itself endlessly when
-		// updating the status while the deletion timestamp is set.
-		if e.ObjectNew.GetDeletionTimestamp() != nil && statusEqual(e.ObjectOld, e.ObjectNew) {
-			return true
-		}
-
-		// If none of the above conditions applies then reconciliation is not allowed.
-		return false
-	},
-
-	DeleteFunc:  func(event.DeleteEvent) bool { return false },
-	GenericFunc: func(event.GenericEvent) bool { return false },
+	return append(preconditions, defaultControllerPredicate)
 }
 
 func hasOperationAnnotation(obj client.Object) bool {
@@ -105,4 +108,16 @@ func statusEqual(oldObj, newObj client.Object) bool {
 	}
 
 	return apiequality.Semantic.DeepEqual(oldAcc.GetExtensionStatus(), newAcc.GetExtensionStatus())
+}
+
+func isNil(arg any) bool {
+	if v := reflect.ValueOf(arg); !v.IsValid() || ((v.Kind() == reflect.Ptr ||
+		v.Kind() == reflect.Interface ||
+		v.Kind() == reflect.Slice ||
+		v.Kind() == reflect.Map ||
+		v.Kind() == reflect.Chan ||
+		v.Kind() == reflect.Func) && v.IsNil()) {
+		return true
+	}
+	return false
 }

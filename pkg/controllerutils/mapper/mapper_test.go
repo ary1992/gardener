@@ -74,7 +74,7 @@ var _ = Describe("Controller Mapper", func() {
 		var mapper Mapper
 
 		BeforeEach(func() {
-			mapper = ClusterToObjectMapper(mgr, newObjListFunc, nil)
+			mapper = ClusterToObjectMapper[client.Object](mgr, newObjListFunc, nil)
 		})
 
 		It("should find all objects for the passed cluster", func() {

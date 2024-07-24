@@ -17,7 +17,7 @@ import (
 var _ = Describe("Add", func() {
 	Describe("#NodePredicate", func() {
 		var (
-			p    predicate.Predicate
+			p    predicate.TypedPredicate[*corev1.Node]
 			node *corev1.Node
 		)
 
@@ -27,12 +27,12 @@ var _ = Describe("Add", func() {
 		})
 
 		Describe("#Create", func() {
-			It("should return false if the object is not a Node", func() {
-				Expect(p.Create(event.CreateEvent{Object: &corev1.ConfigMap{}})).To(BeFalse())
+			It("should return false if the object is null", func() {
+				Expect(p.Create(event.TypedCreateEvent[*corev1.Node]{})).To(BeFalse())
 			})
 
 			It("should return false if Node doesn't have any taints", func() {
-				Expect(p.Create(event.CreateEvent{Object: node})).To(BeFalse())
+				Expect(p.Create(event.TypedCreateEvent[*corev1.Node]{Object: node})).To(BeFalse())
 			})
 
 			It("should return false if Node doesn't have critical components taint", func() {
@@ -44,7 +44,7 @@ var _ = Describe("Add", func() {
 					Effect: "NoSchedule",
 				}}
 
-				Expect(p.Create(event.CreateEvent{Object: node})).To(BeFalse())
+				Expect(p.Create(event.TypedCreateEvent[*corev1.Node]{Object: node})).To(BeFalse())
 			})
 
 			It("should return true if Node has critical components taint", func() {
@@ -53,25 +53,25 @@ var _ = Describe("Add", func() {
 					Effect: "NoExecute",
 				}}
 
-				Expect(p.Create(event.CreateEvent{Object: node})).To(BeTrue())
+				Expect(p.Create(event.TypedCreateEvent[*corev1.Node]{Object: node})).To(BeTrue())
 			})
 		})
 
 		Describe("#Update", func() {
 			It("should return false", func() {
-				Expect(p.Update(event.UpdateEvent{})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Node]{})).To(BeFalse())
 			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return false", func() {
-				Expect(p.Delete(event.DeleteEvent{})).To(BeFalse())
+				Expect(p.Delete(event.TypedDeleteEvent[*corev1.Node]{})).To(BeFalse())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return false", func() {
-				Expect(p.Generic(event.GenericEvent{})).To(BeFalse())
+				Expect(p.Generic(event.TypedGenericEvent[*corev1.Node]{})).To(BeFalse())
 			})
 		})
 	})
@@ -84,7 +84,7 @@ var _ = Describe("Add", func() {
 		})
 
 		It("should return false if the object is not a Node", func() {
-			Expect(NodeHasCriticalComponentsNotReadyTaint(&corev1.ConfigMap{})).To(BeFalse())
+			Expect(NodeHasCriticalComponentsNotReadyTaint(&corev1.Node{})).To(BeFalse())
 		})
 
 		It("should return false if Node doesn't have any taints", func() {

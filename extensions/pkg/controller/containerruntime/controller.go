@@ -37,7 +37,7 @@ type AddArgs struct {
 	// given actuator.
 	ControllerOptions controller.Options
 	// Predicates are the predicates to use.
-	Predicates []predicate.Predicate
+	Predicates []predicate.TypedPredicate[*extensionsv1alpha1.ContainerRuntime]
 	// Resync determines the requeue interval.
 	Resync time.Duration
 	// Type is the type of the resource considered for reconciliation.
@@ -55,8 +55,8 @@ func Add(ctx context.Context, mgr manager.Manager, args AddArgs) error {
 }
 
 // DefaultPredicates returns the default predicates for an containerruntime reconciler.
-func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.Predicate {
-	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation, extensionspredicate.ShootNotFailedPredicate(ctx, mgr))
+func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.TypedPredicate[*extensionsv1alpha1.ContainerRuntime] {
+	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation, extensionspredicate.ShootNotFailedPredicate[*extensionsv1alpha1.ContainerRuntime](ctx, mgr))
 }
 
 func add(ctx context.Context, mgr manager.Manager, args AddArgs) error {

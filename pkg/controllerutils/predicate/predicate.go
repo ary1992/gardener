@@ -19,6 +19,13 @@ import (
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
 )
 
+// TypedIsDeleting is a predicate for objects having a deletion timestamp.
+func TypedIsDeleting[T client.Object]() predicate.TypedPredicate[T] {
+	return predicate.NewTypedPredicateFuncs(func(obj T) bool {
+		return obj.GetDeletionTimestamp() != nil
+	})
+}
+
 // IsDeleting is a predicate for objects having a deletion timestamp.
 func IsDeleting() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
@@ -27,8 +34,8 @@ func IsDeleting() predicate.Predicate {
 }
 
 // HasName returns a predicate which returns true when the object has the provided name.
-func HasName(name string) predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+func HasName[T client.Object](name string) predicate.TypedPredicate[T] {
+	return predicate.NewTypedPredicateFuncs(func(obj T) bool {
 		return obj.GetName() == name
 	})
 }
@@ -46,6 +53,25 @@ const (
 	// Generic is a constant for an event of type 'generic'.
 	Generic
 )
+
+// ForEventTypes is a predicate which returns true only for the provided event types.
+func TypedForEventTypes[T client.Object](events ...EventType) predicate.TypedPredicate[T] {
+	has := func(event EventType) bool {
+		for _, e := range events {
+			if e == event {
+				return true
+			}
+		}
+		return false
+	}
+
+	return predicate.TypedFuncs[T]{
+		CreateFunc:  func(_ event.TypedCreateEvent[T]) bool { return has(Create) },
+		UpdateFunc:  func(_ event.TypedUpdateEvent[T]) bool { return has(Update) },
+		DeleteFunc:  func(_ event.TypedDeleteEvent[T]) bool { return has(Delete) },
+		GenericFunc: func(_ event.TypedGenericEvent[T]) bool { return has(Generic) },
+	}
+}
 
 // ForEventTypes is a predicate which returns true only for the provided event types.
 func ForEventTypes(events ...EventType) predicate.Predicate {
@@ -66,8 +92,20 @@ func ForEventTypes(events ...EventType) predicate.Predicate {
 	}
 }
 
+// TypedEvalGeneric returns true if all predicates match for the given object.
+func TypedEvalGeneric[T client.Object](obj T, predicates ...predicate.TypedPredicate[T]) bool {
+	e := event.TypedGenericEvent[T]{Object: obj}
+	for _, p := range predicates {
+		if !p.Generic(e) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // EvalGeneric returns true if all predicates match for the given object.
-func EvalGeneric(obj client.Object, predicates ...predicate.Predicate) bool {
+func EvalGeneric[T client.Object](obj T, predicates ...predicate.Predicate) bool {
 	e := event.GenericEvent{Object: obj}
 	for _, p := range predicates {
 		if !p.Generic(e) {
@@ -80,10 +118,10 @@ func EvalGeneric(obj client.Object, predicates ...predicate.Predicate) bool {
 
 // RelevantConditionsChanged returns true for all events except for 'UPDATE'. Here, true is only returned when the
 // status, reason or message of a relevant condition has changed.
-func RelevantConditionsChanged(
+func RelevantConditionsChanged[T client.Object](
 	getConditionsFromObject func(obj client.Object) []gardencorev1beta1.Condition,
 	relevantConditionTypes ...gardencorev1beta1.ConditionType,
-) predicate.Predicate {
+) predicate.TypedPredicate[T] {
 	wasConditionStatusReasonOrMessageUpdated := func(oldCondition, newCondition *gardencorev1beta1.Condition) bool {
 		return (oldCondition == nil && newCondition != nil) ||
 			(oldCondition != nil && newCondition == nil) ||
@@ -91,8 +129,8 @@ func RelevantConditionsChanged(
 				(oldCondition.Status != newCondition.Status || oldCondition.Reason != newCondition.Reason || oldCondition.Message != newCondition.Message))
 	}
 
-	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
+	return predicate.TypedFuncs[T]{
+		UpdateFunc: func(e event.TypedUpdateEvent[T]) bool {
 			var (
 				oldConditions = getConditionsFromObject(e.ObjectOld)
 				newConditions = getConditionsFromObject(e.ObjectNew)
@@ -114,8 +152,8 @@ func RelevantConditionsChanged(
 
 // ManagedResourceConditionsChanged returns a predicate which returns true if the status/reason/message of the
 // Resources{Applied,Healthy,Progressing} condition of the ManagedResource changes.
-func ManagedResourceConditionsChanged() predicate.Predicate {
-	return RelevantConditionsChanged(
+func ManagedResourceConditionsChanged() predicate.TypedPredicate[*resourcesv1alpha1.ManagedResource] {
+	return RelevantConditionsChanged[*resourcesv1alpha1.ManagedResource](
 		func(obj client.Object) []gardencorev1beta1.Condition {
 			managedResource, ok := obj.(*resourcesv1alpha1.ManagedResource)
 			if !ok {
@@ -130,9 +168,9 @@ func ManagedResourceConditionsChanged() predicate.Predicate {
 }
 
 // LastOperationChanged returns a predicate which returns true when the LastOperation of the passed object is changed.
-func LastOperationChanged(getLastOperation func(client.Object) *gardencorev1beta1.LastOperation) predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
+func LastOperationChanged[T client.Object](getLastOperation func(client.Object) *gardencorev1beta1.LastOperation) predicate.TypedPredicate[T] {
+	return predicate.TypedFuncs[T]{
+		CreateFunc: func(e event.TypedCreateEvent[T]) bool {
 			// If the object has the operation annotation reconcile, this means it's not picked up by the extension controller.
 			// For restore and migrate operations, we remove the annotation only at the end, so we don't stop enqueueing it.
 			if e.Object.GetAnnotations()[v1beta1constants.GardenerOperation] == v1beta1constants.GardenerOperationReconcile {
@@ -144,7 +182,7 @@ func LastOperationChanged(getLastOperation func(client.Object) *gardencorev1beta
 			return lastOperationStateFailed(getLastOperation(e.Object))
 		},
 
-		UpdateFunc: func(e event.UpdateEvent) bool {
+		UpdateFunc: func(e event.TypedUpdateEvent[T]) bool {
 			// If the object has the operation annotation, this means it's not picked up by the extension controller.
 			// migrate and restore annotations are removed for the extensions only at the end of the operation,
 			// so if the oldObject doesn't have the same annotation, don't enqueue it.
@@ -165,8 +203,8 @@ func LastOperationChanged(getLastOperation func(client.Object) *gardencorev1beta
 			return lastOperationStateChanged(getLastOperation(e.ObjectOld), getLastOperation(e.ObjectNew))
 		},
 
-		DeleteFunc:  func(event.DeleteEvent) bool { return false },
-		GenericFunc: func(event.GenericEvent) bool { return false },
+		DeleteFunc:  func(event.TypedDeleteEvent[T]) bool { return false },
+		GenericFunc: func(event.TypedGenericEvent[T]) bool { return false },
 	}
 }
 
@@ -218,8 +256,8 @@ func GetExtensionLastOperation(obj client.Object) *gardencorev1beta1.LastOperati
 
 // SeedNamePredicate returns a predicate which returns true for objects that are being migrated to a different
 // seed cluster.
-func SeedNamePredicate(seedName string, getSeedNamesFromObject func(client.Object) (*string, *string)) predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+func SeedNamePredicate[T client.Object](seedName string, getSeedNamesFromObject func(client.Object) (*string, *string)) predicate.TypedPredicate[T] {
+	return predicate.NewTypedPredicateFuncs[T](func(obj T) bool {
 		specSeedName, statusSeedName := getSeedNamesFromObject(obj)
 		return gardenerutils.GetResponsibleSeedName(specSeedName, statusSeedName) == seedName
 	})

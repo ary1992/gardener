@@ -35,7 +35,7 @@ type AddArgs struct {
 	ControllerOptions controller.Options
 	// Predicates are the predicates to use.
 	// If unset, GenerationChangedPredicate will be used.
-	Predicates []predicate.Predicate
+	Predicates []predicate.TypedPredicate[*extensionsv1alpha1.Network]
 	// Type is the type of the resource considered for reconciliation.
 	Type string
 	// IgnoreOperationAnnotation specifies whether to ignore the operation annotation or not.
@@ -45,8 +45,8 @@ type AddArgs struct {
 }
 
 // DefaultPredicates returns the default predicates for a Network reconciler.
-func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.Predicate {
-	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation, extensionspredicate.ShootNotFailedPredicate(ctx, mgr))
+func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.TypedPredicate[*extensionsv1alpha1.Network] {
+	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation, extensionspredicate.ShootNotFailedPredicate[*extensionsv1alpha1.Network](ctx, mgr))
 }
 
 // Add creates a new network Controller and adds it to the Manager.

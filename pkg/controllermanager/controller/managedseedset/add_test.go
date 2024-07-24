@@ -33,7 +33,6 @@ var _ = Describe("Add", func() {
 		log        logr.Logger
 		fakeClient client.Client
 		reconciler *Reconciler
-		pred       predicate.Predicate
 
 		now = metav1.Now()
 
@@ -64,6 +63,7 @@ var _ = Describe("Add", func() {
 	Describe("#ShootPredicate", func() {
 		var (
 			oldShoot, newShoot *gardencorev1beta1.Shoot
+			pred               predicate.Predicate
 		)
 
 		BeforeEach(func() {
@@ -299,6 +299,7 @@ var _ = Describe("Add", func() {
 	Describe("#ManagedSeedPredicate", func() {
 		var (
 			oldManagedSeed, newManagedSeed *seedmanagementv1alpha1.ManagedSeed
+			pred                           predicate.Predicate
 		)
 
 		BeforeEach(func() {
@@ -433,6 +434,7 @@ var _ = Describe("Add", func() {
 		var (
 			oldSeed, newSeed *gardencorev1beta1.Seed
 			managedSeed      *seedmanagementv1alpha1.ManagedSeed
+			pred             predicate.TypedPredicate[*gardencorev1beta1.Seed]
 		)
 
 		BeforeEach(func() {
@@ -474,43 +476,43 @@ var _ = Describe("Add", func() {
 				{Type: gardencorev1beta1.SeedSystemComponentsHealthy, Status: gardencorev1beta1.ConditionTrue},
 				{Type: gardencorev1beta1.SeedBackupBucketsReady, Status: gardencorev1beta1.ConditionTrue},
 			}
-			Expect(pred.Create(event.CreateEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Update(event.UpdateEvent{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeTrue())
-			Expect(pred.Delete(event.DeleteEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+			Expect(pred.Create(event.TypedCreateEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Update(event.TypedUpdateEvent[*gardencorev1beta1.Seed]{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeTrue())
+			Expect(pred.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Generic(event.TypedGenericEvent[*gardencorev1beta1.Seed]{})).To(BeFalse())
 		})
 
 		It("should return false for create, update and delete event when ManagedSeed referenced by Seed does not exist", func() {
-			Expect(pred.Create(event.CreateEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Update(event.UpdateEvent{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
-			Expect(pred.Delete(event.DeleteEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+			Expect(pred.Create(event.TypedCreateEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Update(event.TypedUpdateEvent[*gardencorev1beta1.Seed]{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
+			Expect(pred.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Generic(event.TypedGenericEvent[*gardencorev1beta1.Seed]{})).To(BeFalse())
 		})
 
 		It("should return false for create, update and delete event when ManagedSeed referenced by Seed does not refer to ManagedSeedSet", func() {
 			managedSeed.OwnerReferences = nil
 			Expect(fakeClient.Create(ctx, managedSeed)).To(Succeed())
-			Expect(pred.Create(event.CreateEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Update(event.UpdateEvent{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
-			Expect(pred.Delete(event.DeleteEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+			Expect(pred.Create(event.TypedCreateEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Update(event.TypedUpdateEvent[*gardencorev1beta1.Seed]{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
+			Expect(pred.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Generic(event.TypedGenericEvent[*gardencorev1beta1.Seed]{})).To(BeFalse())
 		})
 
 		It("should return false for create, update and delete event when ManagedSeedSet referenced by Seed's ManagedSeed does not exist", func() {
 			Expect(fakeClient.Create(ctx, managedSeed)).To(Succeed())
-			Expect(pred.Create(event.CreateEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Update(event.UpdateEvent{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
-			Expect(pred.Delete(event.DeleteEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+			Expect(pred.Create(event.TypedCreateEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Update(event.TypedUpdateEvent[*gardencorev1beta1.Seed]{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
+			Expect(pred.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Generic(event.TypedGenericEvent[*gardencorev1beta1.Seed]{})).To(BeFalse())
 		})
 
 		It("should return false for create, update and delete event when ManagedSeedSet referenced by Seed's ManagedSeed does not have pending replica", func() {
 			Expect(fakeClient.Create(ctx, managedSeed)).To(Succeed())
 			Expect(fakeClient.Create(ctx, managedSeedSet)).To(Succeed())
-			Expect(pred.Create(event.CreateEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Update(event.UpdateEvent{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
-			Expect(pred.Delete(event.DeleteEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+			Expect(pred.Create(event.TypedCreateEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Update(event.TypedUpdateEvent[*gardencorev1beta1.Seed]{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
+			Expect(pred.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Generic(event.TypedGenericEvent[*gardencorev1beta1.Seed]{})).To(BeFalse())
 		})
 
 		It("should return false for create, update and delete event when ManagedSeedSet referenced by Seed's ManagedSeed has other Seed in pending replica", func() {
@@ -519,10 +521,10 @@ var _ = Describe("Add", func() {
 			}
 			Expect(fakeClient.Create(ctx, managedSeed)).To(Succeed())
 			Expect(fakeClient.Create(ctx, managedSeedSet)).To(Succeed())
-			Expect(pred.Create(event.CreateEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Update(event.UpdateEvent{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
-			Expect(pred.Delete(event.DeleteEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+			Expect(pred.Create(event.TypedCreateEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Update(event.TypedUpdateEvent[*gardencorev1beta1.Seed]{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
+			Expect(pred.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Generic(event.TypedGenericEvent[*gardencorev1beta1.Seed]{})).To(BeFalse())
 		})
 
 		It("should return true for create, update and delete event when pending replica has SeedNotReady status and Seed is ready", func() {
@@ -542,10 +544,10 @@ var _ = Describe("Add", func() {
 			}
 			Expect(fakeClient.Create(ctx, managedSeed)).To(Succeed())
 			Expect(fakeClient.Create(ctx, managedSeedSet)).To(Succeed())
-			Expect(pred.Create(event.CreateEvent{Object: newSeed})).To(BeTrue())
-			Expect(pred.Update(event.UpdateEvent{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeTrue())
-			Expect(pred.Delete(event.DeleteEvent{Object: newSeed})).To(BeTrue())
-			Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+			Expect(pred.Create(event.TypedCreateEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeTrue())
+			Expect(pred.Update(event.TypedUpdateEvent[*gardencorev1beta1.Seed]{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeTrue())
+			Expect(pred.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeTrue())
+			Expect(pred.Generic(event.TypedGenericEvent[*gardencorev1beta1.Seed]{})).To(BeFalse())
 		})
 
 		It("should return false for create, update and delete event in default case", func() {
@@ -555,10 +557,10 @@ var _ = Describe("Add", func() {
 			}
 			Expect(fakeClient.Create(ctx, managedSeed)).To(Succeed())
 			Expect(fakeClient.Create(ctx, managedSeedSet)).To(Succeed())
-			Expect(pred.Create(event.CreateEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Update(event.UpdateEvent{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
-			Expect(pred.Delete(event.DeleteEvent{Object: newSeed})).To(BeFalse())
-			Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+			Expect(pred.Create(event.TypedCreateEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Update(event.TypedUpdateEvent[*gardencorev1beta1.Seed]{ObjectOld: oldSeed, ObjectNew: newSeed})).To(BeFalse())
+			Expect(pred.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Seed]{Object: newSeed})).To(BeFalse())
+			Expect(pred.Generic(event.TypedGenericEvent[*gardencorev1beta1.Seed]{})).To(BeFalse())
 		})
 	})
 

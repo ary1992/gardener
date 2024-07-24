@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"github.com/gardener/gardener/pkg/gardenlet/controller/shoot/shoot/helper"
 )
 
@@ -58,7 +59,7 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, gardenCluster cluster.Clu
 		source.Kind(gardenCluster.GetCache(),
 			&gardencorev1beta1.Shoot{},
 			r.EventHandler(c.GetLogger()),
-			&predicate.GenerationChangedPredicate{}),
+			&predicate.TypedGenerationChangedPredicate[*gardencorev1beta1.Shoot]{}),
 	)
 }
 
@@ -66,11 +67,11 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, gardenCluster cluster.Clu
 var CalculateControllerInfos = helper.CalculateControllerInfos
 
 // EventHandler returns an event handler.
-func (r *Reconciler) EventHandler(log logr.Logger) handler.EventHandler {
-	return &handler.Funcs{
-		CreateFunc: func(_ context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-			shoot, ok := e.Object.(*gardencorev1beta1.Shoot)
-			if !ok {
+func (r *Reconciler) EventHandler(log logr.Logger) handler.TypedEventHandler[*gardencorev1beta1.Shoot] {
+	return &handler.TypedFuncs[*gardencorev1beta1.Shoot]{
+		CreateFunc: func(_ context.Context, e event.TypedCreateEvent[*gardencorev1beta1.Shoot], q workqueue.RateLimitingInterface) {
+			shoot := e.Object
+			if v1beta1helper.IsNil(shoot) {
 				return
 			}
 
@@ -86,7 +87,7 @@ func (r *Reconciler) EventHandler(log logr.Logger) handler.EventHandler {
 				Namespace: e.Object.GetNamespace(),
 			}}, enqueueAfter)
 		},
-		UpdateFunc: func(_ context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+		UpdateFunc: func(_ context.Context, e event.TypedUpdateEvent[*gardencorev1beta1.Shoot], q workqueue.RateLimitingInterface) {
 			req := reconcile.Request{NamespacedName: types.NamespacedName{
 				Name:      e.ObjectNew.GetName(),
 				Namespace: e.ObjectNew.GetNamespace(),

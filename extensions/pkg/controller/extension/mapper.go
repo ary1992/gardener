@@ -15,6 +15,6 @@ import (
 
 // ClusterToExtensionMapper returns a mapper that returns requests for Extensions whose
 // referenced clusters have been modified.
-func ClusterToExtensionMapper(mgr manager.Manager, predicates ...predicate.Predicate) mapper.Mapper {
+func ClusterToExtensionMapper(mgr manager.Manager, predicates ...predicate.TypedPredicate[*extensionsv1alpha1.Extension]) mapper.Mapper {
 	return mapper.ClusterToObjectMapper(mgr, func() client.ObjectList { return &extensionsv1alpha1.ExtensionList{} }, predicates)
 }

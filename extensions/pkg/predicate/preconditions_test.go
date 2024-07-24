@@ -66,7 +66,7 @@ var _ = Describe("Preconditions", func() {
 			mgr  *mockmanager.MockManager
 
 			fakeClient client.Client
-			pred       predicate.Predicate
+			pred       predicate.TypedPredicate[*extensionsv1alpha1.Infrastructure]
 
 			obj       *extensionsv1alpha1.Infrastructure
 			namespace = "shoot--foo--bar"
@@ -84,7 +84,7 @@ var _ = Describe("Preconditions", func() {
 			mgr = mockmanager.NewMockManager(ctrl)
 			mgr.EXPECT().GetClient().Return(fakeClient)
 
-			pred = ShootNotFailedPredicate(ctx, mgr)
+			pred = ShootNotFailedPredicate[*extensionsv1alpha1.Infrastructure](ctx, mgr)
 
 			obj = &extensionsv1alpha1.Infrastructure{ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
 		})
@@ -131,19 +131,23 @@ var _ = Describe("Preconditions", func() {
 				})
 			}
 
-			tests(func() bool { return pred.Create(event.CreateEvent{Object: obj}) })
-			tests(func() bool { return pred.Update(event.UpdateEvent{ObjectNew: obj}) })
+			tests(func() bool {
+				return pred.Create(event.TypedCreateEvent[*extensionsv1alpha1.Infrastructure]{Object: obj})
+			})
+			tests(func() bool {
+				return pred.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Infrastructure]{ObjectNew: obj})
+			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return false", func() {
-				Expect(pred.Delete(event.DeleteEvent{})).To(BeFalse())
+				Expect(pred.Delete(event.TypedDeleteEvent[*extensionsv1alpha1.Infrastructure]{})).To(BeFalse())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return false", func() {
-				Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+				Expect(pred.Generic(event.TypedGenericEvent[*extensionsv1alpha1.Infrastructure]{})).To(BeFalse())
 			})
 		})
 	})

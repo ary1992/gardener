@@ -17,26 +17,32 @@ import (
 )
 
 // IsInGardenNamespacePredicate is a predicate which returns true when the provided object is in the 'garden' namespace.
-var IsInGardenNamespacePredicate = predicate.NewPredicateFuncs(func(obj client.Object) bool {
+var IsInGardenNamespacePredicate = predicate.NewTypedPredicateFuncs[client.Object](func(obj client.Object) bool {
 	return obj != nil && obj.GetNamespace() == v1beta1constants.GardenNamespace
 })
 
+func IsInGardenNamespace[T client.Object]() predicate.TypedPredicate[T] {
+	return predicate.NewTypedPredicateFuncs[T](func(obj T) bool {
+		return obj.GetNamespace() == v1beta1constants.GardenNamespace
+	})
+}
+
 // ShootNotFailedPredicate returns a predicate which returns true when the Shoot's `.status.lastOperation.state` is not
 // equals 'Failed'.
-func ShootNotFailedPredicate(ctx context.Context, mgr manager.Manager) predicate.Predicate {
-	return &shootNotFailedPredicate{
+func ShootNotFailedPredicate[T client.Object](ctx context.Context, mgr manager.Manager) predicate.TypedPredicate[T] {
+	return &shootNotFailedPredicate[T]{
 		ctx:    ctx,
 		reader: mgr.GetClient(),
 	}
 }
 
-type shootNotFailedPredicate struct {
+type shootNotFailedPredicate[T client.Object] struct {
 	ctx    context.Context
 	reader client.Reader
 }
 
-func (p *shootNotFailedPredicate) Create(e event.CreateEvent) bool {
-	if e.Object == nil {
+func (p *shootNotFailedPredicate[T]) Create(e event.TypedCreateEvent[T]) bool {
+	if isNil(e.Object) {
 		return false
 	}
 
@@ -49,10 +55,10 @@ func (p *shootNotFailedPredicate) Create(e event.CreateEvent) bool {
 	return !extensionscontroller.IsFailed(cluster)
 }
 
-func (p *shootNotFailedPredicate) Update(e event.UpdateEvent) bool {
-	return p.Create(event.CreateEvent{Object: e.ObjectNew})
+func (p *shootNotFailedPredicate[T]) Update(e event.TypedUpdateEvent[T]) bool {
+	return p.Create(event.TypedCreateEvent[T]{Object: e.ObjectNew})
 }
 
-func (p *shootNotFailedPredicate) Delete(_ event.DeleteEvent) bool { return false }
+func (p *shootNotFailedPredicate[T]) Delete(_ event.TypedDeleteEvent[T]) bool { return false }
 
-func (p *shootNotFailedPredicate) Generic(_ event.GenericEvent) bool { return false }
+func (p *shootNotFailedPredicate[T]) Generic(_ event.TypedGenericEvent[T]) bool { return false }

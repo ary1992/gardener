@@ -37,7 +37,7 @@ type AddArgs struct {
 	ControllerOptions controller.Options
 	// Predicates are the predicates to use.
 	// If unset, GenerationChangedPredicate will be used.
-	Predicates []predicate.Predicate
+	Predicates []predicate.TypedPredicate[*extensionsv1alpha1.BackupEntry]
 	// Type is the type of the resource considered for reconciliation.
 	Type string
 	// IgnoreOperationAnnotation specifies whether to ignore the operation annotation or not.
@@ -47,8 +47,8 @@ type AddArgs struct {
 }
 
 // DefaultPredicates returns the default predicates for a controlplane reconciler.
-func DefaultPredicates(ignoreOperationAnnotation bool) []predicate.Predicate {
-	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation)
+func DefaultPredicates(ignoreOperationAnnotation bool) []predicate.TypedPredicate[*extensionsv1alpha1.BackupEntry] {
+	return extensionspredicate.DefaultControllerPredicates[*extensionsv1alpha1.BackupEntry](ignoreOperationAnnotation)
 }
 
 // Add creates a new BackupEntry Controller and adds it to the Manager.
@@ -56,11 +56,12 @@ func DefaultPredicates(ignoreOperationAnnotation bool) []predicate.Predicate {
 func Add(ctx context.Context, mgr manager.Manager, args AddArgs) error {
 	args.ControllerOptions.Reconciler = NewReconciler(mgr, args.Actuator)
 	predicates := extensionspredicate.AddTypePredicate(args.Predicates, args.Type)
+
 	return add(ctx, mgr, args, predicates)
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(ctx context.Context, mgr manager.Manager, args AddArgs, predicates []predicate.Predicate) error {
+func add(ctx context.Context, mgr manager.Manager, args AddArgs, predicates []predicate.TypedPredicate[*extensionsv1alpha1.BackupEntry]) error {
 	ctrl, err := controller.New(ControllerName, mgr, args.ControllerOptions)
 	if err != nil {
 		return err

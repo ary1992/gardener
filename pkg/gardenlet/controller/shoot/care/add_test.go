@@ -49,7 +49,7 @@ var _ = Describe("Add", func() {
 	Describe("#EventHandler", func() {
 		var (
 			ctx   = context.TODO()
-			hdlr  handler.EventHandler
+			hdlr  handler.TypedEventHandler[*gardencorev1beta1.Shoot]
 			queue *mockworkqueue.MockRateLimitingInterface
 			req   reconcile.Request
 		)
@@ -66,26 +66,26 @@ var _ = Describe("Add", func() {
 			}))
 			queue.EXPECT().AddAfter(req, reconciler.Config.Controllers.ShootCare.SyncPeriod.Duration)
 
-			hdlr.Create(ctx, event.CreateEvent{Object: shoot}, queue)
+			hdlr.Create(ctx, event.TypedCreateEvent[*gardencorev1beta1.Shoot]{Object: shoot}, queue)
 		})
 
 		It("should enqueue the object for Update events", func() {
 			queue.EXPECT().Add(req)
 
-			hdlr.Update(ctx, event.UpdateEvent{ObjectNew: shoot, ObjectOld: shoot}, queue)
+			hdlr.Update(ctx, event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectNew: shoot, ObjectOld: shoot}, queue)
 		})
 
 		It("should not enqueue the object for Delete events", func() {
-			hdlr.Delete(ctx, event.DeleteEvent{Object: shoot}, queue)
+			hdlr.Delete(ctx, event.TypedDeleteEvent[*gardencorev1beta1.Shoot]{Object: shoot}, queue)
 		})
 
 		It("should not enqueue the object for Generic events", func() {
-			hdlr.Generic(ctx, event.GenericEvent{Object: shoot}, queue)
+			hdlr.Generic(ctx, event.TypedGenericEvent[*gardencorev1beta1.Shoot]{Object: shoot}, queue)
 		})
 	})
 
 	Describe("#ShootPredicate", func() {
-		var p predicate.Predicate
+		var p predicate.TypedPredicate[*gardencorev1beta1.Shoot]
 
 		BeforeEach(func() {
 			p = reconciler.ShootPredicate()
@@ -93,41 +93,41 @@ var _ = Describe("Add", func() {
 
 		Describe("#Create", func() {
 			It("should return true", func() {
-				Expect(p.Create(event.CreateEvent{})).To(BeTrue())
+				Expect(p.Create(event.TypedCreateEvent[*gardencorev1beta1.Shoot]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Update", func() {
 			It("should return false because new object is no shoot", func() {
-				Expect(p.Update(event.UpdateEvent{})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{})).To(BeFalse())
 			})
 
 			It("should return false because old object is no shoot", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectNew: shoot})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectNew: shoot})).To(BeFalse())
 			})
 
 			It("should return false because last operation is nil on old shoot", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectOld: shoot, ObjectNew: shoot})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: shoot, ObjectNew: shoot})).To(BeFalse())
 			})
 
 			It("should return false because last operation is nil on new shoot", func() {
 				oldShoot := shoot.DeepCopy()
 				oldShoot.Status.LastOperation = &gardencorev1beta1.LastOperation{}
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
 			})
 
 			It("should return false because last operation type is 'Delete' on old shoot", func() {
 				shoot.Status.LastOperation = &gardencorev1beta1.LastOperation{}
 				oldShoot := shoot.DeepCopy()
 				oldShoot.Status.LastOperation.Type = gardencorev1beta1.LastOperationTypeDelete
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
 			})
 
 			It("should return false because last operation type is 'Delete' on new shoot", func() {
 				shoot.Status.LastOperation = &gardencorev1beta1.LastOperation{}
 				shoot.Status.LastOperation.Type = gardencorev1beta1.LastOperationTypeDelete
 				oldShoot := shoot.DeepCopy()
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
 			})
 
 			It("should return false because last operation type is not 'Processing' on old shoot", func() {
@@ -135,7 +135,7 @@ var _ = Describe("Add", func() {
 				shoot.Status.LastOperation.Type = gardencorev1beta1.LastOperationTypeReconcile
 				shoot.Status.LastOperation.State = gardencorev1beta1.LastOperationStateSucceeded
 				oldShoot := shoot.DeepCopy()
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
 			})
 
 			It("should return false because last operation type is not 'Succeeded' on new shoot", func() {
@@ -144,7 +144,7 @@ var _ = Describe("Add", func() {
 				shoot.Status.LastOperation.State = gardencorev1beta1.LastOperationStateProcessing
 				oldShoot := shoot.DeepCopy()
 				oldShoot.Status.LastOperation.State = gardencorev1beta1.LastOperationStateProcessing
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
 			})
 
 			It("should return true because last operation type is 'Succeeded' on new shoot", func() {
@@ -153,38 +153,38 @@ var _ = Describe("Add", func() {
 				shoot.Status.LastOperation.State = gardencorev1beta1.LastOperationStateSucceeded
 				oldShoot := shoot.DeepCopy()
 				oldShoot.Status.LastOperation.State = gardencorev1beta1.LastOperationStateProcessing
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeTrue())
 			})
 
 			It("should return false when the seed name is unchanged in the Shoot spec", func() {
 				shoot.Spec.SeedName = ptr.To("test-seed")
 				oldShoot := shoot.DeepCopy()
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
 			})
 
 			It("should return false when the seed name is changed in the Shoot spec", func() {
 				shoot.Spec.SeedName = ptr.To("test-seed")
 				oldShoot := shoot.DeepCopy()
 				shoot.Spec.SeedName = ptr.To("test-seed1")
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeFalse())
 			})
 
 			It("should return true when seed gets assigned to shoot", func() {
 				oldShoot := shoot.DeepCopy()
 				shoot.Spec.SeedName = ptr.To("test-seed")
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: oldShoot, ObjectNew: shoot})).To(BeTrue())
 			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return false", func() {
-				Expect(p.Delete(event.DeleteEvent{})).To(BeFalse())
+				Expect(p.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Shoot]{})).To(BeFalse())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return false", func() {
-				Expect(p.Generic(event.GenericEvent{})).To(BeFalse())
+				Expect(p.Generic(event.TypedGenericEvent[*gardencorev1beta1.Shoot]{})).To(BeFalse())
 			})
 		})
 	})

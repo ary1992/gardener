@@ -42,6 +42,10 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 	secret := &metav1.PartialObjectMetadata{}
 	secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
 
+	predicates := []predicate.Predicate{
+		r.SecretPredicate(),
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -50,10 +54,10 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 			RateLimiter:             r.RateLimiter,
 		}).
 		WatchesRawSource(
-			source.Kind(targetCluster.GetCache(),
+			source.Kind[client.Object](targetCluster.GetCache(),
 				secret,
-				&handler.TypedEnqueueRequestForObject[*metav1.PartialObjectMetadata]{},
-				builder.WithPredicates(r.SecretPredicate())),
+				&handler.TypedEnqueueRequestForObject[client.Object]{},
+				predicates...),
 		).
 		Build(r)
 	if err != nil {

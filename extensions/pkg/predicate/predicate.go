@@ -20,8 +20,8 @@ var logger = log.Log.WithName("predicate")
 
 // HasType filters the incoming OperatingSystemConfigs for ones that have the same type
 // as the given type.
-func HasType(typeName string) predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+func HasType[T client.Object](typeName string) predicate.TypedPredicate[T] {
+	return predicate.NewTypedPredicateFuncs(func(obj T) bool {
 		acc, err := extensions.Accessor(obj)
 		if err != nil {
 			return false
@@ -33,18 +33,18 @@ func HasType(typeName string) predicate.Predicate {
 
 // AddTypePredicate returns a new slice which contains a type predicate and the given `predicates`.
 // if more than one extensionTypes is given all given types are or combined
-func AddTypePredicate(predicates []predicate.Predicate, extensionTypes ...string) []predicate.Predicate {
-	resultPredicates := make([]predicate.Predicate, 0, len(predicates)+1)
+func AddTypePredicate[T client.Object](predicates []predicate.TypedPredicate[T], extensionTypes ...string) []predicate.TypedPredicate[T] {
+	resultPredicates := make([]predicate.TypedPredicate[T], 0, len(predicates)+1)
 	resultPredicates = append(resultPredicates, predicates...)
 
 	if len(extensionTypes) == 1 {
-		resultPredicates = append(resultPredicates, HasType(extensionTypes[0]))
+		resultPredicates = append(resultPredicates, HasType[T](extensionTypes[0]))
 		return resultPredicates
 	}
 
-	orPreds := make([]predicate.Predicate, 0, len(extensionTypes))
+	orPreds := make([]predicate.TypedPredicate[T], 0, len(extensionTypes))
 	for _, extensionType := range extensionTypes {
-		orPreds = append(orPreds, HasType(extensionType))
+		orPreds = append(orPreds, HasType[T](extensionType))
 	}
 
 	return append(resultPredicates, predicate.Or(orPreds...))

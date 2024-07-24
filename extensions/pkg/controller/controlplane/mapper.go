@@ -15,6 +15,6 @@ import (
 
 // ClusterToControlPlaneMapper returns a mapper that returns requests for ControlPlanes whose
 // referenced clusters have been modified.
-func ClusterToControlPlaneMapper(mgr manager.Manager, predicates []predicate.Predicate) mapper.Mapper {
+func ClusterToControlPlaneMapper(mgr manager.Manager, predicates []predicate.TypedPredicate[*extensionsv1alpha1.ControlPlane]) mapper.Mapper {
 	return mapper.ClusterToObjectMapper(mgr, func() client.ObjectList { return &extensionsv1alpha1.ControlPlaneList{} }, predicates)
 }

@@ -35,7 +35,7 @@ type AddArgs struct {
 	ControllerOptions controller.Options
 	// Predicates are the predicates to use.
 	// If unset, GenerationChangedPredicate will be used.
-	Predicates []predicate.Predicate
+	Predicates []predicate.TypedPredicate[*extensionsv1alpha1.OperatingSystemConfig]
 	// Types are the similar types which can be combined with a logic or,
 	// of the resource considered for reconciliation.
 	Types []string
@@ -49,11 +49,11 @@ func Add(mgr manager.Manager, args AddArgs) error {
 }
 
 // DefaultPredicates returns the default predicates for an operatingsystemconfig reconciler.
-func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.Predicate {
-	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation, extensionspredicate.ShootNotFailedPredicate(ctx, mgr))
+func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.TypedPredicate[*extensionsv1alpha1.OperatingSystemConfig] {
+	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation, extensionspredicate.ShootNotFailedPredicate[*extensionsv1alpha1.OperatingSystemConfig](ctx, mgr))
 }
 
-func add(mgr manager.Manager, options controller.Options, predicates []predicate.Predicate) error {
+func add(mgr manager.Manager, options controller.Options, predicates []predicate.TypedPredicate[*extensionsv1alpha1.OperatingSystemConfig]) error {
 	ctrl, err := controller.New(ControllerName, mgr, options)
 	if err != nil {
 		return err

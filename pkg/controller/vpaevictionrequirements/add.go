@@ -8,10 +8,12 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -35,11 +37,17 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, seedCluster cluster.Clust
 		r.Clock = clock.RealClock{}
 	}
 
-	vpaEvictionRequirementsManagedByControllerPredicate, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
+	vpaEvictionRequirementsManagedByControllerPredicate, err := labelSelectorPredicate[*vpaautoscalingv1.VerticalPodAutoscaler](metav1.LabelSelector{
 		MatchLabels: map[string]string{constants.LabelVPAEvictionRequirementsController: constants.EvictionRequirementManagedByController},
 	})
 	if err != nil {
 		return fmt.Errorf("failed computing label selector predicate for eviction requirements managed by controller: %w", err)
+	}
+
+	predicates := []predicate.TypedPredicate[*vpaautoscalingv1.VerticalPodAutoscaler]{
+		vpaEvictionRequirementsManagedByControllerPredicate,
+		predicateutils.TypedForEventTypes[*vpaautoscalingv1.VerticalPodAutoscaler](predicateutils.Create, predicateutils.Update),
+		predicate.Or[*vpaautoscalingv1.VerticalPodAutoscaler](predicate.TypedGenerationChangedPredicate[*vpaautoscalingv1.VerticalPodAutoscaler]{}, predicate.TypedAnnotationChangedPredicate[*vpaautoscalingv1.VerticalPodAutoscaler]{}),
 	}
 
 	return builder.
@@ -52,11 +60,19 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, seedCluster cluster.Clust
 			source.Kind(seedCluster.GetCache(),
 				&vpaautoscalingv1.VerticalPodAutoscaler{},
 				&handler.TypedEnqueueRequestForObject[*vpaautoscalingv1.VerticalPodAutoscaler]{},
-				builder.WithPredicates(
-					vpaEvictionRequirementsManagedByControllerPredicate,
-					predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update),
-					predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}),
-				)),
+				predicates...),
 		).
 		Complete(r)
+}
+
+// LabelSelectorPredicate constructs a Predicate from a LabelSelector.
+// Only objects matching the LabelSelector will be admitted.
+func labelSelectorPredicate[T client.Object](s metav1.LabelSelector) (predicate.TypedPredicate[T], error) {
+	selector, err := metav1.LabelSelectorAsSelector(&s)
+	if err != nil {
+		return predicate.TypedFuncs[T]{}, err
+	}
+	return predicate.NewTypedPredicateFuncs[T](func(o T) bool {
+		return selector.Matches(labels.Set(o.GetLabels()))
+	}), nil
 }

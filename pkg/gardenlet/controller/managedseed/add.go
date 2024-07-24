@@ -25,6 +25,7 @@ import (
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	seedmanagementv1alpha1 "github.com/gardener/gardener/pkg/apis/seedmanagement/v1alpha1"
 	"github.com/gardener/gardener/pkg/controllerutils/mapper"
 	"github.com/gardener/gardener/pkg/utils"
@@ -77,6 +78,11 @@ func (r *Reconciler) AddToManager(
 		)
 	}
 
+	predicates := []predicate.TypedPredicate[*seedmanagementv1alpha1.ManagedSeed]{
+		r.ManagedSeedPredicate(ctx, r.Config.SeedConfig.SeedTemplate.Name),
+		&predicate.TypedGenerationChangedPredicate[*seedmanagementv1alpha1.ManagedSeed]{},
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -87,10 +93,7 @@ func (r *Reconciler) AddToManager(
 			source.Kind(gardenCluster.GetCache(),
 				&seedmanagementv1alpha1.ManagedSeed{},
 				r.EnqueueWithJitterDelay(),
-				builder.WithPredicates(
-					r.ManagedSeedPredicate(ctx, r.Config.SeedConfig.SeedTemplate.Name),
-					&predicate.GenerationChangedPredicate{},
-				)),
+				predicates...),
 		).
 		Build(r)
 	if err != nil {
@@ -106,7 +109,7 @@ func (r *Reconciler) AddToManager(
 }
 
 // ManagedSeedPredicate returns the predicate for ManagedSeed events.
-func (r *Reconciler) ManagedSeedPredicate(ctx context.Context, seedName string) predicate.Predicate {
+func (r *Reconciler) ManagedSeedPredicate(ctx context.Context, seedName string) predicate.TypedPredicate[*seedmanagementv1alpha1.ManagedSeed] {
 	return &managedSeedPredicate{
 		ctx:      ctx,
 		reader:   r.GardenClient,
@@ -120,19 +123,21 @@ type managedSeedPredicate struct {
 	seedName string
 }
 
-func (p *managedSeedPredicate) Create(e event.CreateEvent) bool {
+func (p *managedSeedPredicate) Create(e event.TypedCreateEvent[*seedmanagementv1alpha1.ManagedSeed]) bool {
 	return p.filterManagedSeed(e.Object)
 }
 
-func (p *managedSeedPredicate) Update(e event.UpdateEvent) bool {
+func (p *managedSeedPredicate) Update(e event.TypedUpdateEvent[*seedmanagementv1alpha1.ManagedSeed]) bool {
 	return p.filterManagedSeed(e.ObjectNew)
 }
 
-func (p *managedSeedPredicate) Delete(e event.DeleteEvent) bool {
+func (p *managedSeedPredicate) Delete(e event.TypedDeleteEvent[*seedmanagementv1alpha1.ManagedSeed]) bool {
 	return p.filterManagedSeed(e.Object)
 }
 
-func (p *managedSeedPredicate) Generic(_ event.GenericEvent) bool { return false }
+func (p *managedSeedPredicate) Generic(_ event.TypedGenericEvent[*seedmanagementv1alpha1.ManagedSeed]) bool {
+	return false
+}
 
 // filterManagedSeed is filtering func for ManagedSeeds that checks if the ManagedSeed references a Shoot scheduled on a Seed,
 // for which the gardenlet is responsible.
@@ -146,7 +151,7 @@ func (p *managedSeedPredicate) filterManagedSeed(obj client.Object) bool {
 }
 
 // SeedOfManagedSeedPredicate returns the predicate for Seed events.
-func (r *Reconciler) SeedOfManagedSeedPredicate(ctx context.Context, seedName string) predicate.Predicate {
+func (r *Reconciler) SeedOfManagedSeedPredicate(ctx context.Context, seedName string) predicate.TypedPredicate[*gardencorev1beta1.Seed] {
 	return &seedOfManagedSeedPredicate{
 		ctx:             ctx,
 		reader:          r.GardenClient,
@@ -162,19 +167,21 @@ type seedOfManagedSeedPredicate struct {
 	seedName        string
 }
 
-func (p *seedOfManagedSeedPredicate) Create(e event.CreateEvent) bool {
+func (p *seedOfManagedSeedPredicate) Create(e event.TypedCreateEvent[*gardencorev1beta1.Seed]) bool {
 	return p.filterSeedOfManagedSeed(e.Object)
 }
 
-func (p *seedOfManagedSeedPredicate) Update(e event.UpdateEvent) bool {
+func (p *seedOfManagedSeedPredicate) Update(e event.TypedUpdateEvent[*gardencorev1beta1.Seed]) bool {
 	return p.filterSeedOfManagedSeed(e.ObjectNew)
 }
 
-func (p *seedOfManagedSeedPredicate) Delete(e event.DeleteEvent) bool {
+func (p *seedOfManagedSeedPredicate) Delete(e event.TypedDeleteEvent[*gardencorev1beta1.Seed]) bool {
 	return p.filterSeedOfManagedSeed(e.Object)
 }
 
-func (p *seedOfManagedSeedPredicate) Generic(_ event.GenericEvent) bool { return false }
+func (p *seedOfManagedSeedPredicate) Generic(_ event.TypedGenericEvent[*gardencorev1beta1.Seed]) bool {
+	return false
+}
 
 // filterSeedOfManagedSeed is filtering func for Seeds that checks if the Seed is owned by a ManagedSeed that references a Shoot
 // scheduled on a Seed, for which the gardenlet is responsible.
@@ -225,11 +232,11 @@ var RandomDurationWithMetaDuration = utils.RandomDurationWithMetaDuration
 // EnqueueWithJitterDelay returns handler.Funcs which enqueues the object with a random Jitter duration when the JitterUpdate
 // is enabled in ManagedSeed controller configuration.
 // All other events are normally enqueued.
-func (r *Reconciler) EnqueueWithJitterDelay() handler.EventHandler {
-	return &handler.Funcs{
-		CreateFunc: func(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
-			managedSeed, ok := evt.Object.(*seedmanagementv1alpha1.ManagedSeed)
-			if !ok {
+func (r *Reconciler) EnqueueWithJitterDelay() handler.TypedEventHandler[*seedmanagementv1alpha1.ManagedSeed] {
+	return &handler.TypedFuncs[*seedmanagementv1alpha1.ManagedSeed]{
+		CreateFunc: func(_ context.Context, evt event.TypedCreateEvent[*seedmanagementv1alpha1.ManagedSeed], q workqueue.RateLimitingInterface) {
+			managedSeed := evt.Object
+			if v1beta1helper.IsNil(managedSeed) {
 				return
 			}
 
@@ -255,9 +262,9 @@ func (r *Reconciler) EnqueueWithJitterDelay() handler.EventHandler {
 			// roughly at the same time.
 			q.AddAfter(reconcileRequest(evt.Object), RandomDurationWithMetaDuration(r.Config.Controllers.ManagedSeed.SyncJitterPeriod))
 		},
-		UpdateFunc: func(_ context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-			managedSeed, ok := evt.ObjectNew.(*seedmanagementv1alpha1.ManagedSeed)
-			if !ok {
+		UpdateFunc: func(_ context.Context, evt event.TypedUpdateEvent[*seedmanagementv1alpha1.ManagedSeed], q workqueue.RateLimitingInterface) {
+			managedSeed := evt.ObjectNew
+			if v1beta1helper.IsNil(managedSeed) {
 				return
 			}
 
@@ -278,8 +285,8 @@ func (r *Reconciler) EnqueueWithJitterDelay() handler.EventHandler {
 				q.Add(reconcileRequest(evt.ObjectNew))
 			}
 		},
-		DeleteFunc: func(_ context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-			if evt.Object == nil {
+		DeleteFunc: func(_ context.Context, evt event.TypedDeleteEvent[*seedmanagementv1alpha1.ManagedSeed], q workqueue.RateLimitingInterface) {
+			if v1beta1helper.IsNil(evt.Object) {
 				return
 			}
 			q.Add(reconcileRequest(evt.Object))

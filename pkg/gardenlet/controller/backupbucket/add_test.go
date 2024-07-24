@@ -46,7 +46,7 @@ var _ = Describe("Add", func() {
 
 	Describe("#SeedNamePredicate", func() {
 		var (
-			p predicate.Predicate
+			p predicate.TypedPredicate[*gardencorev1beta1.BackupBucket]
 		)
 
 		BeforeEach(func() {
@@ -54,19 +54,19 @@ var _ = Describe("Add", func() {
 		})
 
 		It("should return true because the backupbucket belongs to this seed", func() {
-			Expect(p.Create(event.CreateEvent{Object: backupBucket})).To(BeTrue())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: backupBucket})).To(BeTrue())
-			Expect(p.Delete(event.DeleteEvent{Object: backupBucket})).To(BeTrue())
-			Expect(p.Generic(event.GenericEvent{Object: backupBucket})).To(BeTrue())
+			Expect(p.Create(event.TypedCreateEvent[*gardencorev1beta1.BackupBucket]{Object: backupBucket})).To(BeTrue())
+			Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]{ObjectNew: backupBucket})).To(BeTrue())
+			Expect(p.Delete(event.TypedDeleteEvent[*gardencorev1beta1.BackupBucket]{Object: backupBucket})).To(BeTrue())
+			Expect(p.Generic(event.TypedGenericEvent[*gardencorev1beta1.BackupBucket]{Object: backupBucket})).To(BeTrue())
 		})
 
 		It("should return false because the backupbucket doesn't belong to this seed", func() {
 			backupBucket.Spec.SeedName = ptr.To("some-other-seed")
 
-			Expect(p.Create(event.CreateEvent{Object: backupBucket})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: backupBucket})).To(BeFalse())
-			Expect(p.Delete(event.DeleteEvent{Object: backupBucket})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: backupBucket})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*gardencorev1beta1.BackupBucket]{Object: backupBucket})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]{ObjectNew: backupBucket})).To(BeFalse())
+			Expect(p.Delete(event.TypedDeleteEvent[*gardencorev1beta1.BackupBucket]{Object: backupBucket})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*gardencorev1beta1.BackupBucket]{Object: backupBucket})).To(BeFalse())
 		})
 	})
 

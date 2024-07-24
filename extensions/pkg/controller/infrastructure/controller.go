@@ -39,7 +39,7 @@ type AddArgs struct {
 	ControllerOptions controller.Options
 	// Predicates are the predicates to use.
 	// If unset, GenerationChangedPredicate will be used.
-	Predicates []predicate.Predicate
+	Predicates []predicate.TypedPredicate[*extensionsv1alpha1.Infrastructure]
 	// Type is the type of the resource considered for reconciliation.
 	Type string
 	// WatchBuilder defines additional watches on controllers that should be set up.
@@ -53,8 +53,8 @@ type AddArgs struct {
 }
 
 // DefaultPredicates returns the default predicates for an infrastructure reconciler.
-func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.Predicate {
-	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation, extensionspredicate.ShootNotFailedPredicate(ctx, mgr))
+func DefaultPredicates(ctx context.Context, mgr manager.Manager, ignoreOperationAnnotation bool) []predicate.TypedPredicate[*extensionsv1alpha1.Infrastructure] {
+	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation, extensionspredicate.ShootNotFailedPredicate[*extensionsv1alpha1.Infrastructure](ctx, mgr))
 }
 
 // Add creates a new Infrastructure Controller and adds it to the Manager.

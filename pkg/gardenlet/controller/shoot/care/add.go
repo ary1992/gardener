@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	predicateutils "github.com/gardener/gardener/pkg/controllerutils/predicate"
 	"github.com/gardener/gardener/pkg/utils"
 )
@@ -38,6 +39,8 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, gardenCluster cluster.Clu
 		r.Clock = clock.RealClock{}
 	}
 
+	predicates := []predicate.TypedPredicate[*gardencorev1beta1.Shoot]{r.ShootPredicate()}
+
 	return builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -50,7 +53,7 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, gardenCluster cluster.Clu
 			source.Kind(gardenCluster.GetCache(),
 				&gardencorev1beta1.Shoot{},
 				r.EventHandler(),
-				builder.WithPredicates(r.ShootPredicate())),
+				predicates...),
 		).
 		Complete(r)
 }
@@ -59,11 +62,11 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, gardenCluster cluster.Clu
 var RandomDurationWithMetaDuration = utils.RandomDurationWithMetaDuration
 
 // EventHandler returns a handler for Shoot events.
-func (r *Reconciler) EventHandler() handler.EventHandler {
-	return &handler.Funcs{
-		CreateFunc: func(_ context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-			shoot, ok := e.Object.(*gardencorev1beta1.Shoot)
-			if !ok {
+func (r *Reconciler) EventHandler() handler.TypedEventHandler[*gardencorev1beta1.Shoot] {
+	return &handler.TypedFuncs[*gardencorev1beta1.Shoot]{
+		CreateFunc: func(_ context.Context, e event.TypedCreateEvent[*gardencorev1beta1.Shoot], q workqueue.RateLimitingInterface) {
+			shoot := e.Object
+			if v1beta1helper.IsNil(shoot) {
 				return
 			}
 
@@ -82,7 +85,7 @@ func (r *Reconciler) EventHandler() handler.EventHandler {
 			// don't add random duration for enqueueing new Shoots which have never been health checked yet
 			q.Add(req)
 		},
-		UpdateFunc: func(_ context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+		UpdateFunc: func(_ context.Context, e event.TypedUpdateEvent[*gardencorev1beta1.Shoot], q workqueue.RateLimitingInterface) {
 			q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 				Name:      e.ObjectNew.GetName(),
 				Namespace: e.ObjectNew.GetNamespace(),
@@ -93,27 +96,27 @@ func (r *Reconciler) EventHandler() handler.EventHandler {
 
 // ShootPredicate is a predicate which returns 'true' for create events, and for update events in case the shoot was
 // successfully reconciled.
-func (r *Reconciler) ShootPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(event.CreateEvent) bool {
+func (r *Reconciler) ShootPredicate() predicate.TypedPredicate[*gardencorev1beta1.Shoot] {
+	return predicate.TypedFuncs[*gardencorev1beta1.Shoot]{
+		CreateFunc: func(event.TypedCreateEvent[*gardencorev1beta1.Shoot]) bool {
 			return true
 		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			shoot, ok := e.ObjectNew.(*gardencorev1beta1.Shoot)
-			if !ok {
+		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.Shoot]) bool {
+			shoot := e.ObjectNew
+			if v1beta1helper.IsNil(e.ObjectNew) {
 				return false
 			}
 
-			oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
-			if !ok {
+			oldShoot := e.ObjectOld
+			if v1beta1helper.IsNil(e.ObjectOld) {
 				return false
 			}
 
 			// re-evaluate shoot health status right after a reconciliation operation has succeeded
 			return predicateutils.ReconciliationFinishedSuccessfully(oldShoot.Status.LastOperation, shoot.Status.LastOperation) || seedGotAssigned(oldShoot, shoot)
 		},
-		DeleteFunc:  func(event.DeleteEvent) bool { return false },
-		GenericFunc: func(event.GenericEvent) bool { return false },
+		DeleteFunc:  func(event.TypedDeleteEvent[*gardencorev1beta1.Shoot]) bool { return false },
+		GenericFunc: func(event.TypedGenericEvent[*gardencorev1beta1.Shoot]) bool { return false },
 	}
 }
 

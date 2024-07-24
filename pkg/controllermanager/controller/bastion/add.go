@@ -6,6 +6,7 @@ package bastion
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -60,28 +61,26 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 }
 
 // ShootPredicate returns the predicate for Shoot events.
-func (r *Reconciler) ShootPredicate() predicate.Predicate {
-	return predicate.Or(
-		predicateutils.IsDeleting(),
-		predicate.Funcs{
-			CreateFunc:  func(_ event.CreateEvent) bool { return false },
-			DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
-			GenericFunc: func(_ event.GenericEvent) bool { return false },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldShoot, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
-				if !ok {
+func (r *Reconciler) ShootPredicate() predicate.TypedPredicate[*gardencorev1beta1.Shoot] {
+	return predicate.Or[*gardencorev1beta1.Shoot](
+		predicateutils.TypedIsDeleting[*gardencorev1beta1.Shoot](),
+		predicate.TypedFuncs[*gardencorev1beta1.Shoot]{
+			CreateFunc:  func(_ event.TypedCreateEvent[*gardencorev1beta1.Shoot]) bool { return false },
+			DeleteFunc:  func(_ event.TypedDeleteEvent[*gardencorev1beta1.Shoot]) bool { return false },
+			GenericFunc: func(_ event.TypedGenericEvent[*gardencorev1beta1.Shoot]) bool { return false },
+			UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.Shoot]) bool {
+				if isNil(e.ObjectOld) {
 					return false
 				}
-				newShoot, ok := e.ObjectNew.(*gardencorev1beta1.Shoot)
-				if !ok {
-					return false
-				}
-
-				if oldShoot.Spec.SeedName == nil {
+				if isNil(e.ObjectNew) {
 					return false
 				}
 
-				return !apiequality.Semantic.DeepEqual(oldShoot.Spec.SeedName, newShoot.Spec.SeedName)
+				if e.ObjectOld.Spec.SeedName == nil {
+					return false
+				}
+
+				return !apiequality.Semantic.DeepEqual(e.ObjectOld.Spec.SeedName, e.ObjectNew.Spec.SeedName)
 			},
 		},
 	)
@@ -101,4 +100,16 @@ func (r *Reconciler) MapShootToBastions(ctx context.Context, log logr.Logger, re
 	}
 
 	return mapper.ObjectListToRequests(bastionList)
+}
+
+func isNil(arg any) bool {
+	if v := reflect.ValueOf(arg); !v.IsValid() || ((v.Kind() == reflect.Ptr ||
+		v.Kind() == reflect.Interface ||
+		v.Kind() == reflect.Slice ||
+		v.Kind() == reflect.Map ||
+		v.Kind() == reflect.Chan ||
+		v.Kind() == reflect.Func) && v.IsNil()) {
+		return true
+	}
+	return false
 }

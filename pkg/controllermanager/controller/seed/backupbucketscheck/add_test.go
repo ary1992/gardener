@@ -40,7 +40,7 @@ var _ = Describe("Add", func() {
 	})
 
 	Describe("BackupBucketPredicate", func() {
-		var p predicate.Predicate
+		var p predicate.TypedPredicate[*gardencorev1beta1.BackupBucket]
 
 		BeforeEach(func() {
 			p = reconciler.BackupBucketPredicate()
@@ -48,67 +48,67 @@ var _ = Describe("Add", func() {
 
 		Describe("#Create", func() {
 			It("should return false because object is no BackupBucket", func() {
-				Expect(p.Create(event.CreateEvent{})).To(BeFalse())
+				Expect(p.Create(event.TypedCreateEvent[*gardencorev1beta1.BackupBucket]{})).To(BeFalse())
 			})
 
 			It("should return false because seed name is not set", func() {
 				backupBucket.Spec.SeedName = nil
-				Expect(p.Create(event.CreateEvent{Object: backupBucket})).To(BeFalse())
+				Expect(p.Create(event.TypedCreateEvent[*gardencorev1beta1.BackupBucket]{Object: backupBucket})).To(BeFalse())
 			})
 
 			It("should return true because seed name is set", func() {
-				Expect(p.Create(event.CreateEvent{Object: backupBucket})).To(BeTrue())
+				Expect(p.Create(event.TypedCreateEvent[*gardencorev1beta1.BackupBucket]{Object: backupBucket})).To(BeTrue())
 			})
 		})
 
 		Describe("#Update", func() {
 			It("should return false because object is no BackupBucket", func() {
-				Expect(p.Update(event.UpdateEvent{})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]{})).To(BeFalse())
 			})
 
 			It("should return false because old object is no BackupBucket", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectNew: backupBucket})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]{ObjectNew: backupBucket})).To(BeFalse())
 			})
 
 			It("should return false because seed name is not set", func() {
 				backupBucket.Spec.SeedName = nil
-				Expect(p.Update(event.UpdateEvent{ObjectNew: backupBucket, ObjectOld: backupBucket})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]{ObjectNew: backupBucket, ObjectOld: backupBucket})).To(BeFalse())
 			})
 
 			It("should return false because last error did not change", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectNew: backupBucket, ObjectOld: backupBucket})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]{ObjectNew: backupBucket, ObjectOld: backupBucket})).To(BeFalse())
 			})
 
 			It("should return true because last error was set", func() {
 				oldBackupBucket := backupBucket.DeepCopy()
 				backupBucket.Status.LastError = &gardencorev1beta1.LastError{}
-				Expect(p.Update(event.UpdateEvent{ObjectNew: backupBucket, ObjectOld: oldBackupBucket})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]{ObjectNew: backupBucket, ObjectOld: oldBackupBucket})).To(BeTrue())
 			})
 
 			It("should return true because last error was removed", func() {
 				backupBucket.Status.LastError = &gardencorev1beta1.LastError{}
 				oldBackupBucket := backupBucket.DeepCopy()
 				backupBucket.Status.LastError = nil
-				Expect(p.Update(event.UpdateEvent{ObjectNew: backupBucket, ObjectOld: oldBackupBucket})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]{ObjectNew: backupBucket, ObjectOld: oldBackupBucket})).To(BeTrue())
 			})
 
 			It("should return true because last error was changed", func() {
 				backupBucket.Status.LastError = &gardencorev1beta1.LastError{Description: "foo"}
 				oldBackupBucket := backupBucket.DeepCopy()
 				backupBucket.Status.LastError.Description = "bar"
-				Expect(p.Update(event.UpdateEvent{ObjectNew: backupBucket, ObjectOld: oldBackupBucket})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.BackupBucket]{ObjectNew: backupBucket, ObjectOld: oldBackupBucket})).To(BeTrue())
 			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return false", func() {
-				Expect(p.Delete(event.DeleteEvent{})).To(BeFalse())
+				Expect(p.Delete(event.TypedDeleteEvent[*gardencorev1beta1.BackupBucket]{})).To(BeFalse())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return false", func() {
-				Expect(p.Generic(event.GenericEvent{})).To(BeFalse())
+				Expect(p.Generic(event.TypedGenericEvent[*gardencorev1beta1.BackupBucket]{})).To(BeFalse())
 			})
 		})
 	})

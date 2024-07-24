@@ -27,32 +27,28 @@ import (
 var _ = Describe("Add", func() {
 	var (
 		reconciler     *Reconciler
-		serviceAccount *corev1.ServiceAccount
+		serviceAccount *metav1.PartialObjectMetadata
 	)
 
 	BeforeEach(func() {
 		reconciler = &Reconciler{}
-		serviceAccount = &corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "seed-foo",
-				Name:      "baz",
-				Labels:    map[string]string{"foo": "bar"},
-			},
+		serviceAccount = &metav1.PartialObjectMetadata{}
+		serviceAccount.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ServiceAccount"))
+		serviceAccount.ObjectMeta = metav1.ObjectMeta{
+			Namespace: "seed-foo",
+			Name:      "baz",
+			Labels:    map[string]string{"foo": "bar"},
 		}
 	})
 
 	Describe("ServiceAccountPredicate", func() {
-		var p predicate.Predicate
+		var p predicate.TypedPredicate[*metav1.PartialObjectMetadata]
 
 		BeforeEach(func() {
 			p = reconciler.ServiceAccountPredicate()
 		})
 
-		tests := func(f func(obj client.Object) bool) {
-			It("should return false because object is no ServiceAccount", func() {
-				Expect(f(&corev1.ConfigMap{})).To(BeFalse())
-			})
-
+		tests := func(f func(obj *metav1.PartialObjectMetadata) bool) {
 			It("should return false because namespace is not prefixed with 'seed-'", func() {
 				serviceAccount.Namespace = "foo"
 				Expect(f(serviceAccount)).To(BeFalse())
@@ -64,19 +60,27 @@ var _ = Describe("Add", func() {
 		}
 
 		Describe("#Create", func() {
-			tests(func(obj client.Object) bool { return p.Create(event.CreateEvent{Object: obj}) })
+			tests(func(obj *metav1.PartialObjectMetadata) bool {
+				return p.Create(event.TypedCreateEvent[*metav1.PartialObjectMetadata]{Object: obj})
+			})
 		})
 
 		Describe("#Update", func() {
-			tests(func(obj client.Object) bool { return p.Update(event.UpdateEvent{ObjectNew: obj}) })
+			tests(func(obj *metav1.PartialObjectMetadata) bool {
+				return p.Update(event.TypedUpdateEvent[*metav1.PartialObjectMetadata]{ObjectNew: obj})
+			})
 		})
 
 		Describe("#Delete", func() {
-			tests(func(obj client.Object) bool { return p.Delete(event.DeleteEvent{Object: obj}) })
+			tests(func(obj *metav1.PartialObjectMetadata) bool {
+				return p.Delete(event.TypedDeleteEvent[*metav1.PartialObjectMetadata]{Object: obj})
+			})
 		})
 
 		Describe("#Generic", func() {
-			tests(func(obj client.Object) bool { return p.Generic(event.GenericEvent{Object: obj}) })
+			tests(func(obj *metav1.PartialObjectMetadata) bool {
+				return p.Generic(event.TypedGenericEvent[*metav1.PartialObjectMetadata]{Object: obj})
+			})
 		})
 	})
 

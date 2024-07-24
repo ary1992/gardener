@@ -39,7 +39,7 @@ var _ = Describe("Add", func() {
 	})
 
 	Describe("#ControllerInstallationPredicate", func() {
-		var p predicate.Predicate
+		var p predicate.TypedPredicate[*gardencorev1beta1.ControllerInstallation]
 
 		BeforeEach(func() {
 			p = reconciler.ControllerInstallationPredicate()
@@ -47,13 +47,13 @@ var _ = Describe("Add", func() {
 
 		Describe("#Create", func() {
 			It("should return false", func() {
-				Expect(p.Create(event.CreateEvent{})).To(BeTrue())
+				Expect(p.Create(event.TypedCreateEvent[*gardencorev1beta1.ControllerInstallation]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Update", func() {
 			It("should return true for periodic cache resyncs", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectNew: controllerInstallation, ObjectOld: controllerInstallation.DeepCopy()})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.ControllerInstallation]{ObjectNew: controllerInstallation, ObjectOld: controllerInstallation.DeepCopy()})).To(BeTrue())
 			})
 
 			It("should return true if deletion timestamp changed", func() {
@@ -61,7 +61,7 @@ var _ = Describe("Add", func() {
 				controllerInstallation.ResourceVersion = "2"
 				controllerInstallation.DeletionTimestamp = &metav1.Time{}
 
-				Expect(p.Update(event.UpdateEvent{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.ControllerInstallation]{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeTrue())
 			})
 
 			It("should return true if deployment ref changed", func() {
@@ -69,7 +69,7 @@ var _ = Describe("Add", func() {
 				controllerInstallation.ResourceVersion = "2"
 				controllerInstallation.Spec.DeploymentRef = &corev1.ObjectReference{}
 
-				Expect(p.Update(event.UpdateEvent{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.ControllerInstallation]{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeTrue())
 			})
 
 			It("should return true if registration ref's resourceVersion changed", func() {
@@ -77,7 +77,7 @@ var _ = Describe("Add", func() {
 				controllerInstallation.ResourceVersion = "2"
 				controllerInstallation.Spec.RegistrationRef.ResourceVersion = "foo"
 
-				Expect(p.Update(event.UpdateEvent{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.ControllerInstallation]{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeTrue())
 			})
 
 			It("should return true if seed ref's resourceVersion changed", func() {
@@ -85,7 +85,7 @@ var _ = Describe("Add", func() {
 				controllerInstallation.ResourceVersion = "2"
 				controllerInstallation.Spec.SeedRef.ResourceVersion = "foo"
 
-				Expect(p.Update(event.UpdateEvent{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.ControllerInstallation]{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeTrue())
 			})
 
 			It("should return false if something else changed", func() {
@@ -93,19 +93,19 @@ var _ = Describe("Add", func() {
 				controllerInstallation.ResourceVersion = "2"
 				metav1.SetMetaDataLabel(&controllerInstallation.ObjectMeta, "foo", "bar")
 
-				Expect(p.Update(event.UpdateEvent{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*gardencorev1beta1.ControllerInstallation]{ObjectNew: controllerInstallation, ObjectOld: oldControllerInstallation})).To(BeFalse())
 			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return true", func() {
-				Expect(p.Delete(event.DeleteEvent{})).To(BeTrue())
+				Expect(p.Delete(event.TypedDeleteEvent[*gardencorev1beta1.ControllerInstallation]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return false", func() {
-				Expect(p.Generic(event.GenericEvent{})).To(BeTrue())
+				Expect(p.Generic(event.TypedGenericEvent[*gardencorev1beta1.ControllerInstallation]{})).To(BeTrue())
 			})
 		})
 	})
@@ -114,7 +114,7 @@ var _ = Describe("Add", func() {
 		var (
 			ctx        = context.TODO()
 			fakeClient client.Client
-			p          predicate.Predicate
+			p          predicate.TypedPredicate[*gardencorev1beta1.ControllerInstallation]
 
 			controllerDeployment *gardencorev1.ControllerDeployment
 		)
@@ -132,10 +132,10 @@ var _ = Describe("Add", func() {
 			controllerInstallation.Spec.DeploymentRef = &corev1.ObjectReference{Name: controllerDeployment.Name}
 		})
 
-		tests := func(f func(client.Object) bool) {
-			It("should return false if the object is no ControllerInstallation", func() {
-				Expect(f(controllerDeployment)).To(BeFalse())
-			})
+		tests := func(f func(*gardencorev1beta1.ControllerInstallation) bool) {
+			// It("should return false if the object is no ControllerInstallation", func() {
+			// 	Expect(f(controllerDeployment)).To(BeFalse())
+			// })
 
 			It("should return false if the object has no deployment ref", func() {
 				controllerInstallation.Spec.DeploymentRef = nil
@@ -162,19 +162,27 @@ var _ = Describe("Add", func() {
 		}
 
 		Describe("#Create", func() {
-			tests(func(obj client.Object) bool { return p.Create(event.CreateEvent{Object: obj}) })
+			tests(func(obj *gardencorev1beta1.ControllerInstallation) bool {
+				return p.Create(event.TypedCreateEvent[*gardencorev1beta1.ControllerInstallation]{Object: obj})
+			})
 		})
 
 		Describe("#Update", func() {
-			tests(func(obj client.Object) bool { return p.Update(event.UpdateEvent{ObjectNew: obj}) })
+			tests(func(obj *gardencorev1beta1.ControllerInstallation) bool {
+				return p.Update(event.TypedUpdateEvent[*gardencorev1beta1.ControllerInstallation]{ObjectNew: obj})
+			})
 		})
 
 		Describe("#Delete", func() {
-			tests(func(obj client.Object) bool { return p.Delete(event.DeleteEvent{Object: obj}) })
+			tests(func(obj *gardencorev1beta1.ControllerInstallation) bool {
+				return p.Delete(event.TypedDeleteEvent[*gardencorev1beta1.ControllerInstallation]{Object: obj})
+			})
 		})
 
 		Describe("#Generic", func() {
-			tests(func(obj client.Object) bool { return p.Generic(event.GenericEvent{Object: obj}) })
+			tests(func(obj *gardencorev1beta1.ControllerInstallation) bool {
+				return p.Generic(event.TypedGenericEvent[*gardencorev1beta1.ControllerInstallation]{Object: obj})
+			})
 		})
 	})
 })

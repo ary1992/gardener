@@ -34,7 +34,7 @@ var _ = Describe("Add", func() {
 
 	Describe("#NetworkPolicyPredicate", func() {
 		var (
-			p             predicate.Predicate
+			p             predicate.TypedPredicate[*networkingv1.NetworkPolicy]
 			networkPolicy *networkingv1.NetworkPolicy
 		)
 
@@ -45,18 +45,18 @@ var _ = Describe("Add", func() {
 
 		It("should return true because the NetworkPolicy has name 'allow-to-runtime-apiserver'", func() {
 			networkPolicy.Name = "allow-to-runtime-apiserver"
-			Expect(p.Create(event.CreateEvent{Object: networkPolicy})).To(BeTrue())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: networkPolicy})).To(BeTrue())
-			Expect(p.Delete(event.DeleteEvent{Object: networkPolicy})).To(BeTrue())
-			Expect(p.Generic(event.GenericEvent{Object: networkPolicy})).To(BeTrue())
+			Expect(p.Create(event.TypedCreateEvent[*networkingv1.NetworkPolicy]{Object: networkPolicy})).To(BeTrue())
+			Expect(p.Update(event.TypedUpdateEvent[*networkingv1.NetworkPolicy]{ObjectNew: networkPolicy})).To(BeTrue())
+			Expect(p.Delete(event.TypedDeleteEvent[*networkingv1.NetworkPolicy]{Object: networkPolicy})).To(BeTrue())
+			Expect(p.Generic(event.TypedGenericEvent[*networkingv1.NetworkPolicy]{Object: networkPolicy})).To(BeTrue())
 		})
 
 		It("should return false because the NetworkPolicy is not managed by this reconciler", func() {
 			networkPolicy.Name = "not-managed"
-			Expect(p.Create(event.CreateEvent{Object: networkPolicy})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: networkPolicy})).To(BeFalse())
-			Expect(p.Delete(event.DeleteEvent{Object: networkPolicy})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: networkPolicy})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*networkingv1.NetworkPolicy]{Object: networkPolicy})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*networkingv1.NetworkPolicy]{ObjectNew: networkPolicy})).To(BeFalse())
+			Expect(p.Delete(event.TypedDeleteEvent[*networkingv1.NetworkPolicy]{Object: networkPolicy})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*networkingv1.NetworkPolicy]{Object: networkPolicy})).To(BeFalse())
 		})
 	})
 
@@ -186,7 +186,7 @@ var _ = Describe("Add", func() {
 
 	Describe("#IsKubernetesEndpoint", func() {
 		var (
-			p        predicate.Predicate
+			p        predicate.TypedPredicate[*corev1.Endpoints]
 			endpoint *corev1.Endpoints
 		)
 
@@ -196,28 +196,28 @@ var _ = Describe("Add", func() {
 		})
 
 		It("should return true because the endpoint is the Kubernetes endpoint", func() {
-			Expect(p.Create(event.CreateEvent{Object: endpoint})).To(BeTrue())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: endpoint})).To(BeTrue())
-			Expect(p.Delete(event.DeleteEvent{Object: endpoint})).To(BeTrue())
-			Expect(p.Generic(event.GenericEvent{Object: endpoint})).To(BeTrue())
+			Expect(p.Create(event.TypedCreateEvent[*corev1.Endpoints]{Object: endpoint})).To(BeTrue())
+			Expect(p.Update(event.TypedUpdateEvent[*corev1.Endpoints]{ObjectNew: endpoint})).To(BeTrue())
+			Expect(p.Delete(event.TypedDeleteEvent[*corev1.Endpoints]{Object: endpoint})).To(BeTrue())
+			Expect(p.Generic(event.TypedGenericEvent[*corev1.Endpoints]{Object: endpoint})).To(BeTrue())
 		})
 
 		It("should return false because the endpoint is not the Kubernetes endpoint", func() {
 			endpoint.Name = "foo"
 
-			Expect(p.Create(event.CreateEvent{Object: endpoint})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: endpoint})).To(BeFalse())
-			Expect(p.Delete(event.DeleteEvent{Object: endpoint})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: endpoint})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*corev1.Endpoints]{Object: endpoint})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*corev1.Endpoints]{ObjectNew: endpoint})).To(BeFalse())
+			Expect(p.Delete(event.TypedDeleteEvent[*corev1.Endpoints]{Object: endpoint})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*corev1.Endpoints]{Object: endpoint})).To(BeFalse())
 		})
 
 		It("should return false because the endpoint is a Kubernetes endpoint in a different namespace", func() {
 			endpoint.Namespace = "bar"
 
-			Expect(p.Create(event.CreateEvent{Object: endpoint})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: endpoint})).To(BeFalse())
-			Expect(p.Delete(event.DeleteEvent{Object: endpoint})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: endpoint})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*corev1.Endpoints]{Object: endpoint})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*corev1.Endpoints]{ObjectNew: endpoint})).To(BeFalse())
+			Expect(p.Delete(event.TypedDeleteEvent[*corev1.Endpoints]{Object: endpoint})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*corev1.Endpoints]{Object: endpoint})).To(BeFalse())
 		})
 	})
 })

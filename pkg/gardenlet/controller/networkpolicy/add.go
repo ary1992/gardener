@@ -102,11 +102,11 @@ func AddToManager(
 }
 
 // ClusterPredicate is a predicate which returns 'true' when the network CIDRs of a shoot cluster change.
-func ClusterPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			cluster, ok := e.ObjectNew.(*extensionsv1alpha1.Cluster)
-			if !ok {
+func ClusterPredicate() predicate.TypedPredicate[*extensionsv1alpha1.Cluster] {
+	return predicate.TypedFuncs[*extensionsv1alpha1.Cluster]{
+		UpdateFunc: func(e event.TypedUpdateEvent[*extensionsv1alpha1.Cluster]) bool {
+			cluster := e.ObjectNew
+			if v1beta1helper.IsNil(cluster) {
 				return false
 			}
 			shoot, err := extensions.ShootFromCluster(cluster)
@@ -114,8 +114,8 @@ func ClusterPredicate() predicate.Predicate {
 				return false
 			}
 
-			oldCluster, ok := e.ObjectOld.(*extensionsv1alpha1.Cluster)
-			if !ok {
+			oldCluster := e.ObjectOld
+			if v1beta1helper.IsNil(oldCluster) {
 				return false
 			}
 			oldShoot, err := extensions.ShootFromCluster(oldCluster)
@@ -137,8 +137,8 @@ func ClusterPredicate() predicate.Predicate {
 				!ptr.Equal(shoot.Spec.Networking.Services, oldShoot.Spec.Networking.Services) ||
 				!ptr.Equal(shoot.Spec.Networking.Nodes, oldShoot.Spec.Networking.Nodes)
 		},
-		CreateFunc:  func(event.CreateEvent) bool { return false },
-		DeleteFunc:  func(event.DeleteEvent) bool { return false },
-		GenericFunc: func(event.GenericEvent) bool { return false },
+		CreateFunc:  func(event.TypedCreateEvent[*extensionsv1alpha1.Cluster]) bool { return false },
+		DeleteFunc:  func(event.TypedDeleteEvent[*extensionsv1alpha1.Cluster]) bool { return false },
+		GenericFunc: func(event.TypedGenericEvent[*extensionsv1alpha1.Cluster]) bool { return false },
 	}
 }

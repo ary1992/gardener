@@ -80,7 +80,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		{extensionsv1alpha1.OperatingSystemConfigResource, &extensionsv1alpha1.OperatingSystemConfig{}, func() client.ObjectList { return &extensionsv1alpha1.OperatingSystemConfigList{} }},
 		{extensionsv1alpha1.WorkerResource, &extensionsv1alpha1.Worker{}, func() client.ObjectList { return &extensionsv1alpha1.WorkerList{} }},
 	} {
-		eventHandler := mapper.EnqueueRequestsFrom(
+		eventHandler := mapper.TypedEnqueueRequestsFrom[client.Object](
 			ctx,
 			mgr.GetCache(),
 			r.MapObjectKindToControllerInstallations(extension.objectKind, extension.newObjectListFunc),
@@ -94,7 +94,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		// mapping function would never be executed. Hence, the extension kind would never be part of the
 		// `KindToRequiredTypes` map. Hence, the reconciler would not be able to decide whether the
 		// ControllerInstallation is required.
-		if err = c.Watch(controllerutils.HandleOnce, eventHandler); err != nil {
+		if err = c.Watch(controllerutils.HandleOnce); err != nil {
 			return err
 		}
 

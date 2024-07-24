@@ -18,13 +18,13 @@ import (
 	predicateutils "github.com/gardener/gardener/pkg/controllerutils/predicate"
 )
 
-type clusterToObjectMapper struct {
+type clusterToObjectMapper[T client.Object] struct {
 	reader         cache.Cache
 	newObjListFunc func() client.ObjectList
-	predicates     []predicate.Predicate
+	predicates     []predicate.TypedPredicate[T]
 }
 
-func (m *clusterToObjectMapper) Map(ctx context.Context, _ logr.Logger, reader client.Reader, obj client.Object) []reconcile.Request {
+func (m *clusterToObjectMapper[T]) Map(ctx context.Context, _ logr.Logger, reader client.Reader, obj client.Object) []reconcile.Request {
 	cluster, ok := obj.(*extensionsv1alpha1.Cluster)
 	if !ok {
 		return nil
@@ -36,14 +36,14 @@ func (m *clusterToObjectMapper) Map(ctx context.Context, _ logr.Logger, reader c
 	}
 
 	return ObjectListToRequests(objList, func(o client.Object) bool {
-		return predicateutils.EvalGeneric(o, m.predicates...)
+		return predicateutils.TypedEvalGeneric[T](o.(T), m.predicates...)
 	})
 }
 
 // ClusterToObjectMapper returns a mapper that returns requests for objects whose
 // referenced clusters have been modified.
-func ClusterToObjectMapper(mgr manager.Manager, newObjListFunc func() client.ObjectList, predicates []predicate.Predicate) Mapper {
-	return &clusterToObjectMapper{
+func ClusterToObjectMapper[T client.Object](mgr manager.Manager, newObjListFunc func() client.ObjectList, predicates []predicate.TypedPredicate[T]) Mapper {
+	return &clusterToObjectMapper[T]{
 		reader:         mgr.GetCache(),
 		newObjListFunc: newObjListFunc,
 		predicates:     predicates,

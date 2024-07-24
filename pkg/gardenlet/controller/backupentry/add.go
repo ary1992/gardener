@@ -52,6 +52,11 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		r.GardenNamespace = v1beta1constants.GardenNamespace
 	}
 
+	predicates := []predicate.TypedPredicate[*gardencorev1beta1.BackupEntry]{
+		predicate.TypedGenerationChangedPredicate[*gardencorev1beta1.BackupEntry]{},
+		predicateutils.SeedNamePredicate[*gardencorev1beta1.BackupEntry](r.SeedName, gardenerutils.GetBackupEntrySeedNames),
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -63,10 +68,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 			source.Kind(gardenCluster.GetCache(),
 				&gardencorev1beta1.BackupEntry{},
 				&handler.TypedEnqueueRequestForObject[*gardencorev1beta1.BackupEntry]{},
-				builder.WithPredicates(
-					&predicate.GenerationChangedPredicate{},
-					predicateutils.SeedNamePredicate(r.SeedName, gardenerutils.GetBackupEntrySeedNames),
-				)),
+				predicates...),
 		).
 		Build(r)
 	if err != nil {
@@ -77,7 +79,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		source.Kind(gardenCluster.GetCache(),
 			&gardencorev1beta1.BackupBucket{},
 			mapper.TypedEnqueueRequestsFrom[*gardencorev1beta1.BackupBucket](ctx, mgr.GetCache(), mapper.MapFunc(r.MapBackupBucketToBackupEntry), mapper.UpdateWithNew, c.GetLogger()),
-			predicateutils.LastOperationChanged(getBackupBucketLastOperation)),
+			predicateutils.LastOperationChanged[*gardencorev1beta1.BackupBucket](getBackupBucketLastOperation)),
 	); err != nil {
 		return err
 	}
@@ -86,7 +88,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		source.Kind(seedCluster.GetCache(),
 			&extensionsv1alpha1.BackupEntry{},
 			mapper.TypedEnqueueRequestsFrom[*extensionsv1alpha1.BackupEntry](ctx, mgr.GetCache(), mapper.MapFunc(r.MapExtensionBackupEntryToCoreBackupEntry), mapper.UpdateWithNew, c.GetLogger()),
-			predicateutils.LastOperationChanged(predicateutils.GetExtensionLastOperation)),
+			predicateutils.LastOperationChanged[*extensionsv1alpha1.BackupEntry](predicateutils.GetExtensionLastOperation)),
 	)
 }
 

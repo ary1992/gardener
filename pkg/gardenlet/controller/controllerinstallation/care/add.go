@@ -48,6 +48,10 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		r.GardenNamespace = v1beta1constants.GardenNamespace
 	}
 
+	predicates := []predicate.TypedPredicate[*gardencorev1beta1.ControllerInstallation]{
+		predicateutils.TypedForEventTypes[*gardencorev1beta1.ControllerInstallation](predicateutils.Create),
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -60,7 +64,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 			source.Kind(gardenCluster.GetCache(),
 				&gardencorev1beta1.ControllerInstallation{},
 				&handler.TypedEnqueueRequestForObject[*gardencorev1beta1.ControllerInstallation]{},
-				builder.WithPredicates(predicateutils.ForEventTypes(predicateutils.Create))),
+				predicates...),
 		).
 		Build(r)
 	if err != nil {
@@ -78,8 +82,8 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 
 // IsExtensionDeployment returns a predicate which evaluates to true in case the object is in the garden namespace and
 // the 'controllerinstallation-name' label is present.
-func (r *Reconciler) IsExtensionDeployment() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+func (r *Reconciler) IsExtensionDeployment() predicate.TypedPredicate[*resourcesv1alpha1.ManagedResource] {
+	return predicate.NewTypedPredicateFuncs[*resourcesv1alpha1.ManagedResource](func(obj *resourcesv1alpha1.ManagedResource) bool {
 		return obj.GetNamespace() == v1beta1constants.GardenNamespace &&
 			obj.GetLabels()[utils.LabelKeyControllerInstallationName] != ""
 	})

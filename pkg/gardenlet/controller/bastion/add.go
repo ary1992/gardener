@@ -43,6 +43,10 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		r.Clock = clock.RealClock{}
 	}
 
+	predicates := []predicate.TypedPredicate[*operationsv1alpha1.Bastion]{
+		predicate.TypedGenerationChangedPredicate[*operationsv1alpha1.Bastion]{},
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -54,7 +58,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 			source.Kind(gardenCluster.GetCache(),
 				&operationsv1alpha1.Bastion{},
 				&handler.TypedEnqueueRequestForObject[*operationsv1alpha1.Bastion]{},
-				builder.WithPredicates(predicate.GenerationChangedPredicate{})),
+				predicates...),
 		).
 		Build(r)
 	if err != nil {
@@ -65,7 +69,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		source.Kind(seedCluster.GetCache(),
 			&extensionsv1alpha1.Bastion{},
 			mapper.TypedEnqueueRequestsFrom[*extensionsv1alpha1.Bastion](ctx, mgr.GetCache(), mapper.MapFunc(r.MapExtensionsBastionToOperationsBastion), mapper.UpdateWithNew, c.GetLogger()),
-			predicateutils.LastOperationChanged(predicateutils.GetExtensionLastOperation)),
+			predicateutils.LastOperationChanged[*extensionsv1alpha1.Bastion](predicateutils.GetExtensionLastOperation)),
 	)
 }
 

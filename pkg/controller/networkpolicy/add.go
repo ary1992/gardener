@@ -65,6 +65,10 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, runt
 		r.additionalNamespaceLabelSelectors = append(r.additionalNamespaceLabelSelectors, selector)
 	}
 
+	predicates := []predicate.TypedPredicate[*corev1.Namespace]{
+		predicateutils.TypedForEventTypes[*corev1.Namespace](predicateutils.Create, predicateutils.Update),
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -75,7 +79,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, runt
 			source.Kind(runtimeCluster.GetCache(),
 				&corev1.Namespace{},
 				&handler.TypedEnqueueRequestForObject[*corev1.Namespace]{},
-				builder.WithPredicates(predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update))),
+				predicates...),
 		).
 		Build(r)
 	if err != nil {
@@ -107,26 +111,25 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, runt
 	}
 
 	return c.Watch(
-		&source.Channel{
-			Source:  r.ResolverUpdate,
-			Handler: mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), mapper.MapFunc(r.MapToNamespaces), mapper.UpdateWithNew, c.GetLogger()),
-		},
+		source.Channel(
+			r.ResolverUpdate, mapper.TypedEnqueueRequestsFrom[client.Object](ctx, mgr.GetCache(), mapper.MapFunc(r.MapToNamespaces), mapper.UpdateWithNew, c.GetLogger()),
+		),
 	)
 }
 
 // NetworkPolicyPredicate is a predicate which returns true in case the network policy name matches with one of those
 // managed by this reconciler.
-func (r *Reconciler) NetworkPolicyPredicate() predicate.Predicate {
+func (r *Reconciler) NetworkPolicyPredicate() predicate.TypedPredicate[*networkingv1.NetworkPolicy] {
 	var (
 		configs    = r.networkPolicyConfigs()
-		predicates = make([]predicate.Predicate, 0, len(configs))
+		predicates = make([]predicate.TypedPredicate[*networkingv1.NetworkPolicy], 0, len(configs))
 	)
 
 	for _, config := range configs {
-		predicates = append(predicates, predicateutils.HasName(config.name))
+		predicates = append(predicates, predicateutils.HasName[*networkingv1.NetworkPolicy](config.name))
 	}
 
-	return predicate.Or(predicates...)
+	return predicate.Or[*networkingv1.NetworkPolicy](predicates...)
 }
 
 // MapToNamespaces is a mapper function which returns requests for all relevant namespaces.
@@ -167,8 +170,8 @@ func (r *Reconciler) MapObjectToNamespace(_ context.Context, _ logr.Logger, _ cl
 }
 
 // IsKubernetesEndpoint returns a predicate which evaluates if the object is the kubernetes endpoint.
-func (r *Reconciler) IsKubernetesEndpoint() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+func (r *Reconciler) IsKubernetesEndpoint() predicate.TypedPredicate[*corev1.Endpoints] {
+	return predicate.NewTypedPredicateFuncs[*corev1.Endpoints](func(obj *corev1.Endpoints) bool {
 		return obj.GetNamespace() == corev1.NamespaceDefault && obj.GetName() == "kubernetes"
 	})
 }

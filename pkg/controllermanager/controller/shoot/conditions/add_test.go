@@ -33,7 +33,7 @@ var _ = Describe("Add", func() {
 	})
 
 	Describe("SeedPredicate", func() {
-		var p predicate.Predicate
+		var p predicate.TypedPredicate[*gardencorev1beta1.Seed]
 
 		BeforeEach(func() {
 			p = reconciler.SeedPredicate()
@@ -41,25 +41,25 @@ var _ = Describe("Add", func() {
 
 		Describe("#Create", func() {
 			It("should return true", func() {
-				Expect(p.Create(event.CreateEvent{})).To(BeTrue())
+				Expect(p.Create(event.TypedCreateEvent[*gardencorev1beta1.Seed]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return true", func() {
-				Expect(p.Delete(event.DeleteEvent{})).To(BeTrue())
+				Expect(p.Delete(event.TypedDeleteEvent[*gardencorev1beta1.Seed]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return true", func() {
-				Expect(p.Generic(event.GenericEvent{})).To(BeTrue())
+				Expect(p.Generic(event.TypedGenericEvent[*gardencorev1beta1.Seed]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Update", func() {
 			var (
-				e event.UpdateEvent
+				e event.TypedUpdateEvent[*gardencorev1beta1.Seed]
 
 				oldSeed, newSeed *gardencorev1beta1.Seed
 				gardenletReady   = []gardencorev1beta1.Condition{{
@@ -75,7 +75,7 @@ var _ = Describe("Add", func() {
 			BeforeEach(func() {
 				oldSeed = &gardencorev1beta1.Seed{}
 				newSeed = &gardencorev1beta1.Seed{}
-				e = event.UpdateEvent{ObjectOld: oldSeed, ObjectNew: newSeed}
+				e = event.TypedUpdateEvent[*gardencorev1beta1.Seed]{ObjectOld: oldSeed, ObjectNew: newSeed}
 			})
 
 			It("should return true in case of cache resync update events", func() {

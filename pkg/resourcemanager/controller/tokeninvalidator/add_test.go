@@ -74,7 +74,7 @@ var _ = Describe("Add", func() {
 
 	Describe("#ServiceAccountPredicate", func() {
 		var (
-			p              predicate.Predicate
+			p              predicate.TypedPredicate[*corev1.ServiceAccount]
 			serviceAccount *corev1.ServiceAccount
 		)
 
@@ -85,46 +85,46 @@ var _ = Describe("Add", func() {
 
 		Describe("#Create", func() {
 			It("should return false", func() {
-				Expect(p.Create(event.CreateEvent{})).To(BeFalse())
+				Expect(p.Create(event.TypedCreateEvent[*corev1.ServiceAccount]{})).To(BeFalse())
 			})
 		})
 
 		Describe("#Update", func() {
 			It("should return false when old object is not ServiceAccount", func() {
-				Expect(p.Update(event.UpdateEvent{})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.ServiceAccount]{})).To(BeFalse())
 			})
 
 			It("should return false when new object is not ServiceAccount", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectOld: serviceAccount})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.ServiceAccount]{ObjectOld: serviceAccount})).To(BeFalse())
 			})
 
 			It("should return false when neither auto-token-mount setting nor skip label changed", func() {
 				oldServiceAccount := serviceAccount.DeepCopy()
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldServiceAccount, ObjectNew: serviceAccount})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.ServiceAccount]{ObjectOld: oldServiceAccount, ObjectNew: serviceAccount})).To(BeFalse())
 			})
 
 			It("should return true when auto-token-mount setting changed", func() {
 				oldServiceAccount := serviceAccount.DeepCopy()
 				serviceAccount.AutomountServiceAccountToken = ptr.To(true)
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldServiceAccount, ObjectNew: serviceAccount})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.ServiceAccount]{ObjectOld: oldServiceAccount, ObjectNew: serviceAccount})).To(BeTrue())
 			})
 
 			It("should return true when skip label changed", func() {
 				oldServiceAccount := serviceAccount.DeepCopy()
 				serviceAccount.Labels = map[string]string{"token-invalidator.resources.gardener.cloud/skip": "true"}
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldServiceAccount, ObjectNew: serviceAccount})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.ServiceAccount]{ObjectOld: oldServiceAccount, ObjectNew: serviceAccount})).To(BeTrue())
 			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return false", func() {
-				Expect(p.Delete(event.DeleteEvent{})).To(BeFalse())
+				Expect(p.Delete(event.TypedDeleteEvent[*corev1.ServiceAccount]{})).To(BeFalse())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return false", func() {
-				Expect(p.Generic(event.GenericEvent{})).To(BeFalse())
+				Expect(p.Generic(event.TypedGenericEvent[*corev1.ServiceAccount]{})).To(BeFalse())
 			})
 		})
 	})

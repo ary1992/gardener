@@ -34,14 +34,14 @@ type AddArgs struct {
 	ControllerOptions controller.Options
 	// Predicates are the predicates to use.
 	// If unset, GenerationChangedPredicate will be used.
-	Predicates []predicate.Predicate
+	Predicates []predicate.TypedPredicate[*extensionsv1alpha1.Bastion]
 	// Type is the type of the resource considered for reconciliation.
 	Type string
 }
 
 // DefaultPredicates returns the default predicates for a bastion reconciler.
-func DefaultPredicates(ignoreOperationAnnotation bool) []predicate.Predicate {
-	return extensionspredicate.DefaultControllerPredicates(ignoreOperationAnnotation)
+func DefaultPredicates(ignoreOperationAnnotation bool) []predicate.TypedPredicate[*extensionsv1alpha1.Bastion] {
+	return extensionspredicate.DefaultControllerPredicates[*extensionsv1alpha1.Bastion](ignoreOperationAnnotation)
 }
 
 // Add creates a new Bastion Controller and adds it to the Manager.
@@ -53,7 +53,7 @@ func Add(mgr manager.Manager, args AddArgs) error {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, args AddArgs, predicates []predicate.Predicate) error {
+func add(mgr manager.Manager, args AddArgs, predicates []predicate.TypedPredicate[*extensionsv1alpha1.Bastion]) error {
 	ctrl, err := controller.New(ControllerName, mgr, args.ControllerOptions)
 	if err != nil {
 		return err

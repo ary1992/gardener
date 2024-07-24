@@ -87,11 +87,11 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, sour
 	}
 
 	return c.Watch(
-		source.Kind(mgr.GetCache(),
+		source.Kind[client.Object](mgr.GetCache(),
 			&corev1.Secret{},
-			mapper.TypedEnqueueRequestsFrom[*corev1.Secret](ctx, mgr.GetCache(), r.MapSecretToManagedResources(
+			mapper.TypedEnqueueRequestsFrom[client.Object](ctx, mgr.GetCache(), r.MapSecretToManagedResources(
 				r.ClassFilter,
-				predicate.Or(
+				predicate.Or[client.Object](
 					resourcemanagerpredicate.NotIgnored(),
 					predicateutils.IsDeleting(),
 				),

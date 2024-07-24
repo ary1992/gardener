@@ -37,7 +37,7 @@ var _ = Describe("Add", func() {
 
 	Describe("ShootPredicate", func() {
 		var (
-			p   predicate.Predicate
+			p   predicate.TypedPredicate[*gardencorev1beta1.Shoot]
 			obj *gardencorev1beta1.Shoot
 		)
 
@@ -47,10 +47,10 @@ var _ = Describe("Add", func() {
 		})
 
 		Describe("#Create", func() {
-			var e event.CreateEvent
+			var e event.TypedCreateEvent[*gardencorev1beta1.Shoot]
 
 			BeforeEach(func() {
-				e = event.CreateEvent{Object: obj}
+				e = event.TypedCreateEvent[*gardencorev1beta1.Shoot]{Object: obj}
 			})
 
 			It("should return false if the object is not deleting", func() {
@@ -64,10 +64,10 @@ var _ = Describe("Add", func() {
 		})
 
 		Describe("#Delete", func() {
-			var e event.DeleteEvent
+			var e event.TypedDeleteEvent[*gardencorev1beta1.Shoot]
 
 			BeforeEach(func() {
-				e = event.DeleteEvent{Object: obj}
+				e = event.TypedDeleteEvent[*gardencorev1beta1.Shoot]{Object: obj}
 			})
 
 			It("should return false if the object is not deleting", func() {
@@ -81,10 +81,10 @@ var _ = Describe("Add", func() {
 		})
 
 		Describe("#Generic", func() {
-			var e event.GenericEvent
+			var e event.TypedGenericEvent[*gardencorev1beta1.Shoot]
 
 			BeforeEach(func() {
-				e = event.GenericEvent{Object: obj}
+				e = event.TypedGenericEvent[*gardencorev1beta1.Shoot]{Object: obj}
 			})
 
 			It("should return false if the object is not deleting", func() {
@@ -99,13 +99,13 @@ var _ = Describe("Add", func() {
 
 		Describe("#Update", func() {
 			var (
-				e      event.UpdateEvent
+				e      event.TypedUpdateEvent[*gardencorev1beta1.Shoot]
 				objNew *gardencorev1beta1.Shoot
 			)
 
 			BeforeEach(func() {
 				objNew = obj.DeepCopy()
-				e = event.UpdateEvent{ObjectOld: obj, ObjectNew: objNew}
+				e = event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{ObjectOld: obj, ObjectNew: objNew}
 			})
 
 			It("should return false if the object is not deleting and seed name did not change", func() {

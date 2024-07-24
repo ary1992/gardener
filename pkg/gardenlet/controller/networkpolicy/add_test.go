@@ -23,7 +23,7 @@ import (
 var _ = Describe("Add", func() {
 	Describe("#ClusterPredicate", func() {
 		var (
-			p       predicate.Predicate
+			p       predicate.TypedPredicate[*extensionsv1alpha1.Cluster]
 			cluster *extensionsv1alpha1.Cluster
 			shoot   *gardencorev1beta1.Shoot
 		)
@@ -60,10 +60,10 @@ var _ = Describe("Add", func() {
 		It("should return false if networking is nil for workerless shoot", func() {
 			newCluster := cluster.DeepCopy()
 
-			Expect(p.Create(event.CreateEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: newCluster, ObjectOld: cluster})).To(BeFalse())
-			Expect(p.Delete(event.DeleteEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: cluster})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Cluster]{ObjectNew: newCluster, ObjectOld: cluster})).To(BeFalse())
+			Expect(p.Delete(event.TypedDeleteEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
 		})
 
 		It("should return true if networking is updated to non-nil for workerless shoot", func() {
@@ -71,10 +71,10 @@ var _ = Describe("Add", func() {
 			shoot.Spec.Networking = &gardencorev1beta1.Networking{}
 			newCluster.Spec.Shoot.Raw = encode(shoot)
 
-			Expect(p.Create(event.CreateEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
-			Expect(p.Delete(event.DeleteEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: cluster})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Cluster]{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
+			Expect(p.Delete(event.TypedDeleteEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
 		})
 
 		It("should return true if service cidr is changed for workerless shoot", func() {
@@ -84,10 +84,10 @@ var _ = Describe("Add", func() {
 			shoot.Spec.Networking = &gardencorev1beta1.Networking{Services: ptr.To("bar")}
 			newCluster.Spec.Shoot.Raw = encode(shoot)
 
-			Expect(p.Create(event.CreateEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
-			Expect(p.Delete(event.DeleteEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: cluster})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Cluster]{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
+			Expect(p.Delete(event.TypedDeleteEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
 		})
 
 		It("should return false if no change in networking for shoot with workers", func() {
@@ -96,10 +96,10 @@ var _ = Describe("Add", func() {
 			cluster.Spec.Shoot.Raw = encode(shoot)
 			newCluster := cluster.DeepCopy()
 
-			Expect(p.Create(event.CreateEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: newCluster, ObjectOld: cluster})).To(BeFalse())
-			Expect(p.Delete(event.DeleteEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: cluster})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Cluster]{ObjectNew: newCluster, ObjectOld: cluster})).To(BeFalse())
+			Expect(p.Delete(event.TypedDeleteEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
 		})
 
 		It("should return true if pods cidr is changed for shoot with workers", func() {
@@ -110,10 +110,10 @@ var _ = Describe("Add", func() {
 			shoot.Spec.Networking = &gardencorev1beta1.Networking{Pods: ptr.To("bar")}
 			newCluster.Spec.Shoot.Raw = encode(shoot)
 
-			Expect(p.Create(event.CreateEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
-			Expect(p.Delete(event.DeleteEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: cluster})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Cluster]{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
+			Expect(p.Delete(event.TypedDeleteEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
 		})
 
 		It("should return true if services cidr is changed for shoot with workers", func() {
@@ -124,10 +124,10 @@ var _ = Describe("Add", func() {
 			shoot.Spec.Networking = &gardencorev1beta1.Networking{Services: ptr.To("bar")}
 			newCluster.Spec.Shoot.Raw = encode(shoot)
 
-			Expect(p.Create(event.CreateEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
-			Expect(p.Delete(event.DeleteEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: cluster})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Cluster]{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
+			Expect(p.Delete(event.TypedDeleteEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
 		})
 
 		It("should return true if nodes cidr is changed for shoot with workers", func() {
@@ -138,10 +138,10 @@ var _ = Describe("Add", func() {
 			shoot.Spec.Networking = &gardencorev1beta1.Networking{Nodes: ptr.To("bar")}
 			newCluster.Spec.Shoot.Raw = encode(shoot)
 
-			Expect(p.Create(event.CreateEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
-			Expect(p.Delete(event.DeleteEvent{Object: cluster})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: cluster})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Cluster]{ObjectNew: newCluster, ObjectOld: cluster})).To(BeTrue())
+			Expect(p.Delete(event.TypedDeleteEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*extensionsv1alpha1.Cluster]{Object: cluster})).To(BeFalse())
 		})
 	})
 })

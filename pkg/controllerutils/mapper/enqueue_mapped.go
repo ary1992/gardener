@@ -44,7 +44,7 @@ func (f MapFunc) Map(ctx context.Context, log logr.Logger, reader client.Reader,
 // For UpdateEvents, the given UpdateBehavior decides if only the old, only the new or both objects should be mapped
 // and enqueued.
 func TypedEnqueueRequestsFrom[T client.Object](ctx context.Context, cache cache.Cache, m Mapper, updateBehavior UpdateBehavior, log logr.Logger) handler.TypedEventHandler[T] {
-	return &enqueueRequestsFromMapFunc[T]{
+	return &typedEnqueueRequestsFromMapFunc[T]{
 		mapper:         m,
 		updateBehavior: updateBehavior,
 		ctx:            ctx,
@@ -53,7 +53,7 @@ func TypedEnqueueRequestsFrom[T client.Object](ctx context.Context, cache cache.
 	}
 }
 
-type enqueueRequestsFromMapFunc[T client.Object] struct {
+type typedEnqueueRequestsFromMapFunc[T client.Object] struct {
 	// mapper transforms the argument into a slice of keys to be reconciled
 	mapper Mapper
 	// updateBehavior decides which object(s) to map and enqueue on updates
@@ -76,11 +76,11 @@ const (
 	UpdateWithNew
 )
 
-func (e *enqueueRequestsFromMapFunc[T]) Create(_ context.Context, evt event.TypedCreateEvent[T], q workqueue.RateLimitingInterface) {
+func (e *typedEnqueueRequestsFromMapFunc[T]) Create(_ context.Context, evt event.TypedCreateEvent[T], q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.Object)
 }
 
-func (e *enqueueRequestsFromMapFunc[T]) Update(_ context.Context, evt event.TypedUpdateEvent[T], q workqueue.RateLimitingInterface) {
+func (e *typedEnqueueRequestsFromMapFunc[T]) Update(_ context.Context, evt event.TypedUpdateEvent[T], q workqueue.RateLimitingInterface) {
 	switch e.updateBehavior {
 	case UpdateWithOldAndNew:
 		e.mapAndEnqueue(q, evt.ObjectOld)
@@ -92,15 +92,66 @@ func (e *enqueueRequestsFromMapFunc[T]) Update(_ context.Context, evt event.Type
 	}
 }
 
-func (e *enqueueRequestsFromMapFunc[T]) Delete(_ context.Context, evt event.TypedDeleteEvent[T], q workqueue.RateLimitingInterface) {
+func (e *typedEnqueueRequestsFromMapFunc[T]) Delete(_ context.Context, evt event.TypedDeleteEvent[T], q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.Object)
 }
 
-func (e *enqueueRequestsFromMapFunc[T]) Generic(_ context.Context, evt event.TypedGenericEvent[T], q workqueue.RateLimitingInterface) {
+func (e *typedEnqueueRequestsFromMapFunc[T]) Generic(_ context.Context, evt event.TypedGenericEvent[T], q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.Object)
 }
 
-func (e *enqueueRequestsFromMapFunc[T]) mapAndEnqueue(q workqueue.RateLimitingInterface, object client.Object) {
+func (e *typedEnqueueRequestsFromMapFunc[T]) mapAndEnqueue(q workqueue.RateLimitingInterface, object client.Object) {
+	for _, req := range e.mapper.Map(e.ctx, e.log, e.reader, object) {
+		q.Add(req)
+	}
+}
+
+func EnqueueRequestsFrom(ctx context.Context, cache cache.Cache, m Mapper, updateBehavior UpdateBehavior, log logr.Logger) handler.EventHandler {
+	return &EnqueueRequestsFromMapFunc{
+		mapper:         m,
+		updateBehavior: updateBehavior,
+		ctx:            ctx,
+		log:            log,
+		reader:         cache,
+	}
+}
+
+type EnqueueRequestsFromMapFunc struct {
+	// mapper transforms the argument into a slice of keys to be reconciled
+	mapper Mapper
+	// updateBehavior decides which object(s) to map and enqueue on updates
+	updateBehavior UpdateBehavior
+
+	ctx    context.Context
+	log    logr.Logger
+	reader client.Reader
+}
+
+func (e *EnqueueRequestsFromMapFunc) Create(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+	e.mapAndEnqueue(q, evt.Object)
+}
+
+func (e *EnqueueRequestsFromMapFunc) Update(_ context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+	switch e.updateBehavior {
+	case UpdateWithOldAndNew:
+		e.mapAndEnqueue(q, evt.ObjectOld)
+		e.mapAndEnqueue(q, evt.ObjectNew)
+	case UpdateWithOld:
+		e.mapAndEnqueue(q, evt.ObjectOld)
+	case UpdateWithNew:
+		e.mapAndEnqueue(q, evt.ObjectNew)
+	}
+}
+
+func (e *EnqueueRequestsFromMapFunc) Delete(_ context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+	e.mapAndEnqueue(q, evt.Object)
+}
+
+func (e *EnqueueRequestsFromMapFunc) Generic(_ context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+	e.mapAndEnqueue(q, evt.Object)
+}
+
+func (e *EnqueueRequestsFromMapFunc) mapAndEnqueue(q workqueue.RateLimitingInterface, object client.Object) {
 	for _, req := range e.mapper.Map(e.ctx, e.log, e.reader, object) {
 		q.Add(req)
 	}

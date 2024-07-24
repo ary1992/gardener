@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -17,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	predicateutils "github.com/gardener/gardener/pkg/controllerutils/predicate"
 )
 
@@ -32,6 +32,10 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, targetCluster cluster.Clu
 		r.Recorder = targetCluster.GetEventRecorderFor(ControllerName + "-controller")
 	}
 
+	predicates := []predicate.TypedPredicate[*corev1.Node]{
+		r.NodePredicate(),
+	}
+
 	return builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -42,25 +46,25 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, targetCluster cluster.Clu
 			source.Kind(targetCluster.GetCache(),
 				&corev1.Node{},
 				&handler.TypedEnqueueRequestForObject[*corev1.Node]{},
-				builder.WithPredicates(r.NodePredicate())),
+				predicates...),
 		).
 		Complete(r)
 }
 
 // NodePredicate returns a predicate that filters for Node objects that are created with the taint.
-func (r *Reconciler) NodePredicate() predicate.Predicate {
-	return predicate.And(
-		predicateutils.ForEventTypes(predicateutils.Create),
-		predicate.NewPredicateFuncs(func(obj client.Object) bool {
+func (r *Reconciler) NodePredicate() predicate.TypedPredicate[*corev1.Node] {
+	return predicate.And[*corev1.Node](
+		predicateutils.TypedForEventTypes[*corev1.Node](predicateutils.Create),
+		predicate.NewTypedPredicateFuncs[*corev1.Node](func(obj *corev1.Node) bool {
 			return NodeHasCriticalComponentsNotReadyTaint(obj)
 		}),
 	)
 }
 
 // NodeHasCriticalComponentsNotReadyTaint returns true if the given Node has the taint that this controller manages.
-func NodeHasCriticalComponentsNotReadyTaint(obj client.Object) bool {
-	node, ok := obj.(*corev1.Node)
-	if !ok {
+func NodeHasCriticalComponentsNotReadyTaint(obj *corev1.Node) bool {
+	node := obj
+	if v1beta1helper.IsNil(node) {
 		return false
 	}
 

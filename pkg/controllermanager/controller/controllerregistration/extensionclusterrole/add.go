@@ -80,8 +80,8 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 }
 
 // ServiceAccountPredicate returns true when the namespace is prefixed with `seed-`.
-func (r *Reconciler) ServiceAccountPredicate() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+func (r *Reconciler) ServiceAccountPredicate() predicate.TypedPredicate[*metav1.PartialObjectMetadata] {
+	return predicate.NewTypedPredicateFuncs[*metav1.PartialObjectMetadata](func(obj *metav1.PartialObjectMetadata) bool {
 		return strings.HasPrefix(obj.GetNamespace(), gardenerutils.SeedNamespaceNamePrefix)
 	})
 }

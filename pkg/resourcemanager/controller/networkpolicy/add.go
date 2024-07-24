@@ -14,6 +14,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -50,6 +51,10 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 		r.selectors = append(r.selectors, selector)
 	}
 
+	predicates := []predicate.TypedPredicate[*corev1.Service]{
+		r.ServicePredicate(),
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -60,7 +65,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 			source.Kind(targetCluster.GetCache(),
 				&corev1.Service{},
 				&handler.TypedEnqueueRequestForObject[*corev1.Service]{},
-				builder.WithPredicates(r.ServicePredicate())),
+				predicates...),
 		).
 		Build(r)
 	if err != nil {
@@ -70,7 +75,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 	networkPolicy := &metav1.PartialObjectMetadata{}
 	networkPolicy.SetGroupVersionKind(networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"))
 
-	networkPolicyPredicate, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+	networkPolicyPredicate, err := labelSelectorPredicate[*metav1.PartialObjectMetadata](metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{Key: resourcesv1alpha1.NetworkingServiceName, Operator: metav1.LabelSelectorOpExists},
 		{Key: resourcesv1alpha1.NetworkingServiceNamespace, Operator: metav1.LabelSelectorOpExists},
 	}})
@@ -79,7 +84,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, targ
 	}
 
 	if err := c.Watch(
-		source.Kind(targetCluster.GetCache(),
+		source.Kind[*metav1.PartialObjectMetadata](targetCluster.GetCache(),
 			networkPolicy,
 			mapper.TypedEnqueueRequestsFrom[*metav1.PartialObjectMetadata](ctx, mgr.GetCache(), mapper.MapFunc(r.MapNetworkPolicyToService), mapper.UpdateWithNew, c.GetLogger()),
 			networkPolicyPredicate),
@@ -215,4 +220,16 @@ func (r *Reconciler) MapIngressToServices(_ context.Context, _ logr.Logger, _ cl
 	}
 
 	return requests
+}
+
+// LabelSelectorPredicate constructs a Predicate from a LabelSelector.
+// Only objects matching the LabelSelector will be admitted.
+func labelSelectorPredicate[T client.Object](s metav1.LabelSelector) (predicate.TypedPredicate[T], error) {
+	selector, err := metav1.LabelSelectorAsSelector(&s)
+	if err != nil {
+		return predicate.TypedFuncs[T]{}, err
+	}
+	return predicate.NewTypedPredicateFuncs[T](func(o T) bool {
+		return selector.Matches(labels.Set(o.GetLabels()))
+	}), nil
 }

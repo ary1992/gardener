@@ -8,7 +8,6 @@ import (
 	certificatesv1 "k8s.io/api/certificates/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -31,6 +30,13 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, sourceCluster, targetClus
 		r.TargetClient = targetCluster.GetClient()
 	}
 
+	predicates := []predicate.TypedPredicate[*certificatesv1.CertificateSigningRequest]{
+		predicateutils.TypedForEventTypes[*certificatesv1.CertificateSigningRequest](predicateutils.Create, predicateutils.Update),
+		predicate.NewTypedPredicateFuncs[*certificatesv1.CertificateSigningRequest](func(obj *certificatesv1.CertificateSigningRequest) bool {
+			return obj.Spec.SignerName == certificatesv1.KubeletServingSignerName
+		}),
+	}
+
 	return builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -41,12 +47,15 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, sourceCluster, targetClus
 			source.Kind(targetCluster.GetCache(),
 				&certificatesv1.CertificateSigningRequest{},
 				&handler.TypedEnqueueRequestForObject[*certificatesv1.CertificateSigningRequest]{},
-				builder.WithPredicates(
-					predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update),
-					predicate.NewPredicateFuncs(func(obj client.Object) bool {
-						csr, ok := obj.(*certificatesv1.CertificateSigningRequest)
-						return ok && csr.Spec.SignerName == certificatesv1.KubeletServingSignerName
-					}),
-				)),
+				// TODO(ashish): remove this
+				// builder.WithPredicates(
+				// 	predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update),
+				// 	predicate.NewPredicateFuncs(func(obj client.Object) bool {
+				// 		csr, ok := obj.(*certificatesv1.CertificateSigningRequest)
+				// 		return ok && csr.Spec.SignerName == certificatesv1.KubeletServingSignerName
+				// 	}),
+				// )
+				predicates...,
+			),
 		).Complete(r)
 }

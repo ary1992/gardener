@@ -42,7 +42,7 @@ var _ = Describe("Add", func() {
 
 	Describe("#ServicePredicate", func() {
 		var (
-			p       predicate.Predicate
+			p       predicate.TypedPredicate[*corev1.Service]
 			service *corev1.Service
 		)
 
@@ -53,77 +53,77 @@ var _ = Describe("Add", func() {
 
 		Describe("#Create", func() {
 			It("should return true", func() {
-				Expect(p.Create(event.CreateEvent{})).To(BeTrue())
+				Expect(p.Create(event.TypedCreateEvent[*corev1.Service]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Update", func() {
 			It("should return false because new object is no service", func() {
-				Expect(p.Update(event.UpdateEvent{})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{})).To(BeFalse())
 			})
 
 			It("should return false because old object is no service", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectNew: service})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectNew: service})).To(BeFalse())
 			})
 
 			It("should return false because nothing changed", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectOld: service, ObjectNew: service})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: service, ObjectNew: service})).To(BeFalse())
 			})
 
 			It("should return true because the deletion timestamp was set", func() {
 				oldService := service.DeepCopy()
 				service.DeletionTimestamp = &metav1.Time{}
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
 			})
 
 			It("should return true because the selector was changed", func() {
 				oldService := service.DeepCopy()
 				service.Spec.Selector = map[string]string{"foo": "bar"}
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
 			})
 
 			It("should return true because the ports were changed", func() {
 				oldService := service.DeepCopy()
 				service.Spec.Ports = []corev1.ServicePort{{}}
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
 			})
 
 			It("should return true because the namespace-selectors annotation was changed", func() {
 				oldService := service.DeepCopy()
 				service.Annotations = map[string]string{"networking.resources.gardener.cloud/namespace-selectors": "foo"}
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
 			})
 
 			It("should return true because the pod-label-selector-namespace-alias annotation was changed", func() {
 				oldService := service.DeepCopy()
 				service.Annotations = map[string]string{"networking.resources.gardener.cloud/pod-label-selector-namespace-alias": "foo"}
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
 			})
 
 			It("should return true because the from-world-to-ports annotation was changed", func() {
 				oldService := service.DeepCopy()
 				service.Annotations = map[string]string{"networking.resources.gardener.cloud/from-world-to-ports": "foo"}
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
 			})
 
 			It("should return true because a custom pod label selector was added", func() {
 				oldService := service.DeepCopy()
 				service.Annotations = map[string]string{"networking.resources.gardener.cloud/from-foo-allowed-ports": "foo"}
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
 			})
 
 			It("should return true because a custom pod label selector was removed", func() {
 				oldService := service.DeepCopy()
 				oldService.Annotations = map[string]string{"networking.resources.gardener.cloud/from-foo-allowed-ports": "foo"}
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
 			})
 
 			It("should return true because a custom pod label selector was cjanged", func() {
@@ -131,26 +131,26 @@ var _ = Describe("Add", func() {
 				oldService.Annotations = map[string]string{"networking.resources.gardener.cloud/from-foo-allowed-ports": "foo"}
 				service.Annotations = map[string]string{"networking.resources.gardener.cloud/from-foo-allowed-ports": "bar"}
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Service]{ObjectOld: oldService, ObjectNew: service})).To(BeTrue())
 			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return true", func() {
-				Expect(p.Delete(event.DeleteEvent{})).To(BeTrue())
+				Expect(p.Delete(event.TypedDeleteEvent[*corev1.Service]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return true", func() {
-				Expect(p.Generic(event.GenericEvent{})).To(BeTrue())
+				Expect(p.Generic(event.TypedGenericEvent[*corev1.Service]{})).To(BeTrue())
 			})
 		})
 	})
 
 	Describe("#IngressPredicate", func() {
 		var (
-			p       predicate.Predicate
+			p       predicate.TypedPredicate[*networkingv1.Ingress]
 			ingress *networkingv1.Ingress
 		)
 
@@ -161,40 +161,40 @@ var _ = Describe("Add", func() {
 
 		Describe("#Create", func() {
 			It("should return true", func() {
-				Expect(p.Create(event.CreateEvent{})).To(BeTrue())
+				Expect(p.Create(event.TypedCreateEvent[*networkingv1.Ingress]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Update", func() {
 			It("should return false because new object is no ingress", func() {
-				Expect(p.Update(event.UpdateEvent{})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*networkingv1.Ingress]{})).To(BeFalse())
 			})
 
 			It("should return false because old object is no ingress", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectNew: ingress})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*networkingv1.Ingress]{ObjectNew: ingress})).To(BeFalse())
 			})
 
 			It("should return false because nothing changed", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectOld: ingress, ObjectNew: ingress})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*networkingv1.Ingress]{ObjectOld: ingress, ObjectNew: ingress})).To(BeFalse())
 			})
 
 			It("should return true because the rules were changed", func() {
 				oldIngress := ingress.DeepCopy()
 				ingress.Spec.Rules = append(ingress.Spec.Rules, networkingv1.IngressRule{})
 
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldIngress, ObjectNew: ingress})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*networkingv1.Ingress]{ObjectOld: oldIngress, ObjectNew: ingress})).To(BeTrue())
 			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return true", func() {
-				Expect(p.Delete(event.DeleteEvent{})).To(BeTrue())
+				Expect(p.Delete(event.TypedDeleteEvent[*networkingv1.Ingress]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return true", func() {
-				Expect(p.Generic(event.GenericEvent{})).To(BeTrue())
+				Expect(p.Generic(event.TypedGenericEvent[*networkingv1.Ingress]{})).To(BeTrue())
 			})
 		})
 	})

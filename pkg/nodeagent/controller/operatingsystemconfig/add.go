@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	predicateutils "github.com/gardener/gardener/pkg/controllerutils/predicate"
 	nodeagentv1alpha1 "github.com/gardener/gardener/pkg/nodeagent/apis/config/v1alpha1"
 	"github.com/gardener/gardener/pkg/nodeagent/dbus"
@@ -53,6 +54,11 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 		r.Extractor = registry.NewExtractor()
 	}
 
+	predictes := []predicate.TypedPredicate[*corev1.Secret]{
+		r.SecretPredicate(),
+		predicateutils.TypedForEventTypes[*corev1.Secret](predicateutils.Create, predicateutils.Update),
+	}
+
 	return builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -60,34 +66,31 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager) erro
 			source.Kind(mgr.GetCache(),
 				&corev1.Secret{},
 				r.EnqueueWithJitterDelay(ctx, mgr.GetLogger().WithValues("controller", ControllerName).WithName("reconciliation-delayer")),
-				builder.WithPredicates(
-					r.SecretPredicate(),
-					predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Update),
-				)),
+				predictes...),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
 		Complete(r)
 }
 
 // SecretPredicate returns the predicate for Secret events.
-func (r *Reconciler) SecretPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(_ event.CreateEvent) bool { return true },
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldSecret, ok := e.ObjectOld.(*corev1.Secret)
-			if !ok {
+func (r *Reconciler) SecretPredicate() predicate.TypedPredicate[*corev1.Secret] {
+	return predicate.TypedFuncs[*corev1.Secret]{
+		CreateFunc: func(_ event.TypedCreateEvent[*corev1.Secret]) bool { return true },
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
+			oldSecret := e.ObjectOld
+			if v1beta1helper.IsNil(oldSecret) {
 				return false
 			}
 
-			newSecret, ok := e.ObjectNew.(*corev1.Secret)
-			if !ok {
+			newSecret := e.ObjectNew
+			if v1beta1helper.IsNil(newSecret) {
 				return false
 			}
 
 			return !bytes.Equal(oldSecret.Data[nodeagentv1alpha1.DataKeyOperatingSystemConfig], newSecret.Data[nodeagentv1alpha1.DataKeyOperatingSystemConfig])
 		},
-		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
-		GenericFunc: func(_ event.GenericEvent) bool { return false },
+		DeleteFunc:  func(_ event.TypedDeleteEvent[*corev1.Secret]) bool { return false },
+		GenericFunc: func(_ event.TypedGenericEvent[*corev1.Secret]) bool { return false },
 	}
 }
 
@@ -100,27 +103,27 @@ func reconcileRequest(obj client.Object) reconcile.Request {
 
 // EnqueueWithJitterDelay returns handler.Funcs which enqueues the object with a random jitter duration for 'update'
 // events. 'Create' events are enqueued immediately.
-func (r *Reconciler) EnqueueWithJitterDelay(ctx context.Context, log logr.Logger) handler.EventHandler {
+func (r *Reconciler) EnqueueWithJitterDelay(ctx context.Context, log logr.Logger) handler.TypedEventHandler[*corev1.Secret] {
 	delay := delayer{
 		log:    log,
 		client: r.Client,
 	}
 
-	return &handler.Funcs{
-		CreateFunc: func(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+	return &handler.TypedFuncs[*corev1.Secret]{
+		CreateFunc: func(_ context.Context, evt event.TypedCreateEvent[*corev1.Secret], q workqueue.RateLimitingInterface) {
 			if evt.Object == nil {
 				return
 			}
 			q.Add(reconcileRequest(evt.Object))
 		},
 
-		UpdateFunc: func(_ context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-			oldSecret, ok := evt.ObjectOld.(*corev1.Secret)
-			if !ok {
+		UpdateFunc: func(_ context.Context, evt event.TypedUpdateEvent[*corev1.Secret], q workqueue.RateLimitingInterface) {
+			oldSecret := evt.ObjectOld
+			if v1beta1helper.IsNil(oldSecret) {
 				return
 			}
-			newSecret, ok := evt.ObjectNew.(*corev1.Secret)
-			if !ok {
+			newSecret := evt.ObjectNew
+			if v1beta1helper.IsNil(newSecret) {
 				return
 			}
 

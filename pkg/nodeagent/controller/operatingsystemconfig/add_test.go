@@ -30,7 +30,7 @@ import (
 var _ = Describe("Add", func() {
 	Describe("#SecretPredicate", func() {
 		var (
-			p      predicate.Predicate
+			p      predicate.TypedPredicate[*corev1.Secret]
 			secret *corev1.Secret
 		)
 
@@ -41,39 +41,39 @@ var _ = Describe("Add", func() {
 
 		Describe("#Create", func() {
 			It("should return true", func() {
-				Expect(p.Create(event.CreateEvent{})).To(BeTrue())
+				Expect(p.Create(event.TypedCreateEvent[*corev1.Secret]{})).To(BeTrue())
 			})
 		})
 
 		Describe("#Update", func() {
 			It("should return false because old object is not a secret", func() {
-				Expect(p.Update(event.UpdateEvent{})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Secret]{})).To(BeFalse())
 			})
 
 			It("should return false because new object is not a secret", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectOld: secret})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Secret]{ObjectOld: secret})).To(BeFalse())
 			})
 
 			It("should return false because OSC data does not change", func() {
-				Expect(p.Update(event.UpdateEvent{ObjectOld: secret, ObjectNew: secret})).To(BeFalse())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Secret]{ObjectOld: secret, ObjectNew: secret})).To(BeFalse())
 			})
 
 			It("should return true because OSC data changes", func() {
 				oldSecret := secret.DeepCopy()
 				secret.Data = map[string][]byte{"osc.yaml": []byte("foo")}
-				Expect(p.Update(event.UpdateEvent{ObjectOld: oldSecret, ObjectNew: secret})).To(BeTrue())
+				Expect(p.Update(event.TypedUpdateEvent[*corev1.Secret]{ObjectOld: oldSecret, ObjectNew: secret})).To(BeTrue())
 			})
 		})
 
 		Describe("#Delete", func() {
 			It("should return false", func() {
-				Expect(p.Delete(event.DeleteEvent{})).To(BeFalse())
+				Expect(p.Delete(event.TypedDeleteEvent[*corev1.Secret]{})).To(BeFalse())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return false", func() {
-				Expect(p.Generic(event.GenericEvent{})).To(BeFalse())
+				Expect(p.Generic(event.TypedGenericEvent[*corev1.Secret]{})).To(BeFalse())
 			})
 		})
 	})
@@ -84,7 +84,7 @@ var _ = Describe("Add", func() {
 			log = logr.Discard()
 
 			fakeClient client.Client
-			hdlr       handler.EventHandler
+			hdlr       handler.TypedEventHandler[*corev1.Secret]
 			queue      *mockworkqueue.MockRateLimitingInterface
 			obj        *corev1.Secret
 			req        reconcile.Request
@@ -112,20 +112,20 @@ var _ = Describe("Add", func() {
 			It("should enqueue the object without delay", func() {
 				queue.EXPECT().Add(req)
 
-				hdlr.Create(ctx, event.CreateEvent{Object: obj}, queue)
+				hdlr.Create(ctx, event.TypedCreateEvent[*corev1.Secret]{Object: obj}, queue)
 			})
 		})
 
 		Context("Update events", func() {
 			It("should not enqueue the object when the OSC did not change", func() {
-				hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: obj}, queue)
+				hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: obj}, queue)
 			})
 
 			It("should not enqueue the object when the OSC is the same", func() {
 				obj.Data = map[string][]byte{"osc.yaml": []byte(`{"apiVersion":"extensions.gardener.cloud/v1alpha1","kind":"OperatingSystemConfig"}`)}
 				oldObj := obj.DeepCopy()
 
-				hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+				hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 			})
 
 			Context("when the OSC changed", func() {
@@ -140,7 +140,7 @@ var _ = Describe("Add", func() {
 				When("node name is not known yet", func() {
 					It("should enqueue the object without delay", func() {
 						queue.EXPECT().AddAfter(req, time.Duration(0))
-						hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+						hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 					})
 				})
 
@@ -152,7 +152,7 @@ var _ = Describe("Add", func() {
 					When("node does not exist or cannot be read", func() {
 						It("should enqueue the object without delay", func() {
 							queue.EXPECT().AddAfter(req, time.Duration(0))
-							hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+							hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 						})
 					})
 
@@ -173,7 +173,7 @@ var _ = Describe("Add", func() {
 						When("node has no reconciliation delay annotation", func() {
 							It("should enqueue the object without delay", func() {
 								queue.EXPECT().AddAfter(req, time.Duration(0))
-								hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+								hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 							})
 
 							When("node had a reconciliation delay previously", func() {
@@ -182,13 +182,13 @@ var _ = Describe("Add", func() {
 									Expect(fakeClient.Update(ctx, node)).To(Succeed())
 
 									queue.EXPECT().AddAfter(req, 8*time.Minute)
-									hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+									hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 
 									delete(node.Annotations, "node-agent.gardener.cloud/reconciliation-delay")
 									Expect(fakeClient.Update(ctx, node)).To(Succeed())
 
 									queue.EXPECT().AddAfter(req, 8*time.Minute)
-									hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+									hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 								})
 							})
 						})
@@ -199,7 +199,7 @@ var _ = Describe("Add", func() {
 								Expect(fakeClient.Update(ctx, node)).To(Succeed())
 
 								queue.EXPECT().AddAfter(req, time.Duration(0))
-								hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+								hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 							})
 
 							When("node had a reconciliation delay previously", func() {
@@ -208,13 +208,13 @@ var _ = Describe("Add", func() {
 									Expect(fakeClient.Update(ctx, node)).To(Succeed())
 
 									queue.EXPECT().AddAfter(req, 13*time.Second)
-									hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+									hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 
 									metav1.SetMetaDataAnnotation(&node.ObjectMeta, "node-agent.gardener.cloud/reconciliation-delay", "fjj123hi")
 									Expect(fakeClient.Update(ctx, node)).To(Succeed())
 
 									queue.EXPECT().AddAfter(req, 13*time.Second)
-									hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+									hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 								})
 							})
 						})
@@ -226,7 +226,7 @@ var _ = Describe("Add", func() {
 
 							It("should enqueue the object with expected delay", func() {
 								queue.EXPECT().AddAfter(req, 12*time.Hour)
-								hdlr.Update(ctx, event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj}, queue)
+								hdlr.Update(ctx, event.TypedUpdateEvent[*corev1.Secret]{ObjectNew: obj, ObjectOld: oldObj}, queue)
 							})
 						})
 					})
@@ -236,13 +236,13 @@ var _ = Describe("Add", func() {
 
 		Context("Delete events", func() {
 			It("should not enqueue the object", func() {
-				hdlr.Delete(ctx, event.DeleteEvent{Object: obj}, queue)
+				hdlr.Delete(ctx, event.TypedDeleteEvent[*corev1.Secret]{Object: obj}, queue)
 			})
 		})
 
 		Context("Generic events", func() {
 			It("should not enqueue the object", func() {
-				hdlr.Generic(ctx, event.GenericEvent{Object: obj}, queue)
+				hdlr.Generic(ctx, event.TypedGenericEvent[*corev1.Secret]{Object: obj}, queue)
 			})
 		})
 	})

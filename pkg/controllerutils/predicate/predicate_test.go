@@ -81,11 +81,11 @@ var _ = Describe("Predicate", func() {
 	Describe("#HasName", func() {
 		var (
 			shoot        *gardencorev1beta1.Shoot
-			predicate    predicate.Predicate
-			createEvent  event.CreateEvent
-			updateEvent  event.UpdateEvent
-			deleteEvent  event.DeleteEvent
-			genericEvent event.GenericEvent
+			predicate    predicate.TypedPredicate[*gardencorev1beta1.Shoot]
+			createEvent  event.TypedCreateEvent[*gardencorev1beta1.Shoot]
+			updateEvent  event.TypedUpdateEvent[*gardencorev1beta1.Shoot]
+			deleteEvent  event.TypedDeleteEvent[*gardencorev1beta1.Shoot]
+			genericEvent event.TypedGenericEvent[*gardencorev1beta1.Shoot]
 		)
 
 		BeforeEach(func() {
@@ -93,19 +93,19 @@ var _ = Describe("Predicate", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "foobar"},
 			}
 
-			predicate = HasName(shoot.Name)
+			predicate = HasName[*gardencorev1beta1.Shoot](shoot.Name)
 
-			createEvent = event.CreateEvent{
+			createEvent = event.TypedCreateEvent[*gardencorev1beta1.Shoot]{
 				Object: shoot,
 			}
-			updateEvent = event.UpdateEvent{
+			updateEvent = event.TypedUpdateEvent[*gardencorev1beta1.Shoot]{
 				ObjectOld: shoot,
 				ObjectNew: shoot,
 			}
-			deleteEvent = event.DeleteEvent{
+			deleteEvent = event.TypedDeleteEvent[*gardencorev1beta1.Shoot]{
 				Object: shoot,
 			}
-			genericEvent = event.GenericEvent{
+			genericEvent = event.TypedGenericEvent[*gardencorev1beta1.Shoot]{
 				Object: shoot,
 			}
 		})
@@ -170,7 +170,7 @@ var _ = Describe("Predicate", func() {
 
 		BeforeEach(func() {
 			shoot = &gardencorev1beta1.Shoot{}
-			p = RelevantConditionsChanged(
+			p = RelevantConditionsChanged[client.Object](
 				func(obj client.Object) []gardencorev1beta1.Condition {
 					return obj.(*gardencorev1beta1.Shoot).Status.Conditions
 				},
@@ -249,7 +249,7 @@ var _ = Describe("Predicate", func() {
 
 	Describe("#ManagedResourceConditionsChanged", func() {
 		var (
-			p               predicate.Predicate
+			p               predicate.TypedPredicate[*resourcesv1alpha1.ManagedResource]
 			managedResource *resourcesv1alpha1.ManagedResource
 		)
 
@@ -260,48 +260,48 @@ var _ = Describe("Predicate", func() {
 
 		Describe("#Create", func() {
 			It("should return true", func() {
-				gomega.Expect(p.Create(event.CreateEvent{})).To(gomega.BeTrue())
+				gomega.Expect(p.Create(event.TypedCreateEvent[*resourcesv1alpha1.ManagedResource]{})).To(gomega.BeTrue())
 			})
 		})
 
 		Describe("#Update", func() {
 			It("should return false because there is no relevant change", func() {
-				gomega.Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource, ObjectOld: managedResource})).To(gomega.BeFalse())
+				gomega.Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource, ObjectOld: managedResource})).To(gomega.BeFalse())
 			})
 
 			tests := func(conditionType gardencorev1beta1.ConditionType) {
 				It("should return true because condition was added", func() {
 					oldShoot := managedResource.DeepCopy()
 					managedResource.Status.Conditions = []gardencorev1beta1.Condition{{Type: conditionType}}
-					gomega.Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
+					gomega.Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
 				})
 
 				It("should return true because condition was removed", func() {
 					managedResource.Status.Conditions = []gardencorev1beta1.Condition{{Type: conditionType}}
 					oldShoot := managedResource.DeepCopy()
 					managedResource.Status.Conditions = nil
-					gomega.Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
+					gomega.Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
 				})
 
 				It("should return true because condition status was changed", func() {
 					managedResource.Status.Conditions = []gardencorev1beta1.Condition{{Type: conditionType}}
 					oldShoot := managedResource.DeepCopy()
 					managedResource.Status.Conditions[0].Status = gardencorev1beta1.ConditionTrue
-					gomega.Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
+					gomega.Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
 				})
 
 				It("should return true because condition reason was changed", func() {
 					managedResource.Status.Conditions = []gardencorev1beta1.Condition{{Type: conditionType}}
 					oldShoot := managedResource.DeepCopy()
 					managedResource.Status.Conditions[0].Reason = "reason"
-					gomega.Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
+					gomega.Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
 				})
 
 				It("should return true because condition message was changed", func() {
 					managedResource.Status.Conditions = []gardencorev1beta1.Condition{{Type: conditionType}}
 					oldShoot := managedResource.DeepCopy()
 					managedResource.Status.Conditions[0].Message = "message"
-					gomega.Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
+					gomega.Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource, ObjectOld: oldShoot})).To(gomega.BeTrue())
 				})
 			}
 
@@ -320,13 +320,13 @@ var _ = Describe("Predicate", func() {
 
 		Describe("#Delete", func() {
 			It("should return true", func() {
-				gomega.Expect(p.Delete(event.DeleteEvent{})).To(gomega.BeTrue())
+				gomega.Expect(p.Delete(event.TypedDeleteEvent[*resourcesv1alpha1.ManagedResource]{})).To(gomega.BeTrue())
 			})
 		})
 
 		Describe("#Generic", func() {
 			It("should return true", func() {
-				gomega.Expect(p.Generic(event.GenericEvent{})).To(gomega.BeTrue())
+				gomega.Expect(p.Generic(event.TypedGenericEvent[*resourcesv1alpha1.ManagedResource]{})).To(gomega.BeTrue())
 			})
 		})
 	})
@@ -351,7 +351,7 @@ var _ = Describe("Predicate", func() {
 					Name: entryName,
 				},
 			}
-			p = LastOperationChanged(GetExtensionLastOperation)
+			p = LastOperationChanged[client.Object](GetExtensionLastOperation)
 		})
 
 		It("should return false for all events because the extension backupbucket has operation annotation reconcile", func() {
@@ -471,7 +471,7 @@ var _ = Describe("Predicate", func() {
 
 		DescribeTable("filter by seedName",
 			func(specSeedName, statusSeedName *string, match gomegatypes.GomegaMatcher) {
-				p = SeedNamePredicate(seedName, func(client.Object) (*string, *string) {
+				p = SeedNamePredicate[client.Object](seedName, func(client.Object) (*string, *string) {
 					return specSeedName, statusSeedName
 				})
 

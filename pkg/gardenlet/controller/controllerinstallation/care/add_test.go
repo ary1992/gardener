@@ -39,7 +39,7 @@ var _ = Describe("Add", func() {
 	})
 
 	Describe("#IsExtensionDeployment", func() {
-		var p predicate.Predicate
+		var p predicate.TypedPredicate[*resourcesv1alpha1.ManagedResource]
 
 		BeforeEach(func() {
 			p = reconciler.IsExtensionDeployment()
@@ -48,35 +48,35 @@ var _ = Describe("Add", func() {
 		It("should return false because the namespace is not 'garden'", func() {
 			managedResource.Namespace = "foo"
 
-			Expect(p.Create(event.CreateEvent{Object: managedResource})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource})).To(BeFalse())
-			Expect(p.Delete(event.DeleteEvent{Object: managedResource})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: managedResource})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource})).To(BeFalse())
+			Expect(p.Delete(event.TypedDeleteEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeFalse())
 		})
 
 		It("should return true because the label is present", func() {
-			Expect(p.Create(event.CreateEvent{Object: managedResource})).To(BeTrue())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource})).To(BeTrue())
-			Expect(p.Delete(event.DeleteEvent{Object: managedResource})).To(BeTrue())
-			Expect(p.Generic(event.GenericEvent{Object: managedResource})).To(BeTrue())
+			Expect(p.Create(event.TypedCreateEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeTrue())
+			Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource})).To(BeTrue())
+			Expect(p.Delete(event.TypedDeleteEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeTrue())
+			Expect(p.Generic(event.TypedGenericEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeTrue())
 		})
 
 		It("should return false because the label is present but empty", func() {
 			managedResource.Labels["controllerinstallation-name"] = ""
 
-			Expect(p.Create(event.CreateEvent{Object: managedResource})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource})).To(BeFalse())
-			Expect(p.Delete(event.DeleteEvent{Object: managedResource})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: managedResource})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource})).To(BeFalse())
+			Expect(p.Delete(event.TypedDeleteEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeFalse())
 		})
 
 		It("should return false because the label is not present", func() {
 			delete(managedResource.Labels, "controllerinstallation-name")
 
-			Expect(p.Create(event.CreateEvent{Object: managedResource})).To(BeFalse())
-			Expect(p.Update(event.UpdateEvent{ObjectNew: managedResource})).To(BeFalse())
-			Expect(p.Delete(event.DeleteEvent{Object: managedResource})).To(BeFalse())
-			Expect(p.Generic(event.GenericEvent{Object: managedResource})).To(BeFalse())
+			Expect(p.Create(event.TypedCreateEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeFalse())
+			Expect(p.Update(event.TypedUpdateEvent[*resourcesv1alpha1.ManagedResource]{ObjectNew: managedResource})).To(BeFalse())
+			Expect(p.Delete(event.TypedDeleteEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeFalse())
+			Expect(p.Generic(event.TypedGenericEvent[*resourcesv1alpha1.ManagedResource]{Object: managedResource})).To(BeFalse())
 		})
 	})
 

@@ -20,7 +20,7 @@ import (
 )
 
 type secretToBackupBucketMapper struct {
-	predicates []predicate.Predicate
+	predicates []predicate.TypedPredicate[*extensionsv1alpha1.BackupBucket]
 }
 
 func (m *secretToBackupBucketMapper) Map(ctx context.Context, _ logr.Logger, reader client.Reader, obj client.Object) []reconcile.Request {
@@ -35,7 +35,7 @@ func (m *secretToBackupBucketMapper) Map(ctx context.Context, _ logr.Logger, rea
 	var requests []reconcile.Request
 	for _, backupBucket := range backupBucketList.Items {
 		if backupBucket.Spec.SecretRef.Name == obj.GetName() && backupBucket.Spec.SecretRef.Namespace == obj.GetNamespace() {
-			if predicateutils.EvalGeneric(&backupBucket, m.predicates...) {
+			if predicateutils.TypedEvalGeneric(&backupBucket, m.predicates...) {
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
 						Name: backupBucket.Name,
@@ -49,6 +49,6 @@ func (m *secretToBackupBucketMapper) Map(ctx context.Context, _ logr.Logger, rea
 
 // SecretToBackupBucketMapper returns a mapper that returns requests for BackupBucket whose
 // referenced secrets have been modified.
-func SecretToBackupBucketMapper(predicates []predicate.Predicate) mapper.Mapper {
+func SecretToBackupBucketMapper(predicates []predicate.TypedPredicate[*extensionsv1alpha1.BackupBucket]) mapper.Mapper {
 	return &secretToBackupBucketMapper{predicates: predicates}
 }

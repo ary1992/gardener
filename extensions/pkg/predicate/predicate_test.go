@@ -31,7 +31,7 @@ var _ = Describe("Predicate", func() {
 	Describe("#HasType", func() {
 		var (
 			object       client.Object
-			createEvent  event.CreateEvent
+			createEvent  event.TypedCreateEvent[client.Object]
 			updateEvent  event.UpdateEvent
 			deleteEvent  event.DeleteEvent
 			genericEvent event.GenericEvent
@@ -45,23 +45,23 @@ var _ = Describe("Predicate", func() {
 					},
 				},
 			}
-			createEvent = event.CreateEvent{
+			createEvent = event.TypedCreateEvent[client.Object]{
 				Object: object,
 			}
-			updateEvent = event.UpdateEvent{
+			updateEvent = event.TypedUpdateEvent[client.Object]{
 				ObjectOld: object,
 				ObjectNew: object,
 			}
-			deleteEvent = event.DeleteEvent{
+			deleteEvent = event.TypedDeleteEvent[client.Object]{
 				Object: object,
 			}
-			genericEvent = event.GenericEvent{
+			genericEvent = event.TypedGenericEvent[client.Object]{
 				Object: object,
 			}
 		})
 
 		It("should match the type", func() {
-			predicate := HasType(extensionType)
+			predicate := HasType[client.Object](extensionType)
 
 			Expect(predicate.Create(createEvent)).To(BeTrue())
 			Expect(predicate.Update(updateEvent)).To(BeTrue())
@@ -70,7 +70,7 @@ var _ = Describe("Predicate", func() {
 		})
 
 		It("should not match the type", func() {
-			predicate := HasType("anotherType")
+			predicate := HasType[client.Object]("anotherType")
 
 			Expect(predicate.Create(createEvent)).To(BeFalse())
 			Expect(predicate.Update(updateEvent)).To(BeFalse())

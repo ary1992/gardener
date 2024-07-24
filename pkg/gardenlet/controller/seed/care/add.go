@@ -24,6 +24,7 @@ import (
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
 	"github.com/gardener/gardener/pkg/controllerutils/mapper"
 	predicateutils "github.com/gardener/gardener/pkg/controllerutils/predicate"
@@ -44,6 +45,11 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 		r.Clock = clock.RealClock{}
 	}
 
+	predicates := []predicate.TypedPredicate[*gardencorev1beta1.Seed]{
+		predicateutils.HasName[*gardencorev1beta1.Seed](r.SeedName),
+		r.SeedPredicate(),
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -56,9 +62,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 			source.Kind(gardenCluster.GetCache(),
 				&gardencorev1beta1.Seed{},
 				&handler.TypedEnqueueRequestForObject[*gardencorev1beta1.Seed]{},
-				builder.WithPredicates(
-					predicateutils.HasName(r.SeedName),
-					r.SeedPredicate()),
+				predicates...,
 			)).Build(r)
 	if err != nil {
 		return err
@@ -75,33 +79,31 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, gard
 
 // SeedPredicate is a predicate which returns 'true' for create events, and for update events in case the seed was
 // successfully bootstrapped.
-func (r *Reconciler) SeedPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(event.CreateEvent) bool {
+func (r *Reconciler) SeedPredicate() predicate.TypedPredicate[*gardencorev1beta1.Seed] {
+	return predicate.TypedFuncs[*gardencorev1beta1.Seed]{
+		CreateFunc: func(event.TypedCreateEvent[*gardencorev1beta1.Seed]) bool {
 			return true
 		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			seed, ok := e.ObjectNew.(*gardencorev1beta1.Seed)
-			if !ok {
+		UpdateFunc: func(e event.TypedUpdateEvent[*gardencorev1beta1.Seed]) bool {
+			if v1beta1helper.IsNil(e.ObjectNew) {
 				return false
 			}
 
-			oldSeed, ok := e.ObjectOld.(*gardencorev1beta1.Seed)
-			if !ok {
+			if v1beta1helper.IsNil(e.ObjectOld) {
 				return false
 			}
 
-			return predicateutils.ReconciliationFinishedSuccessfully(oldSeed.Status.LastOperation, seed.Status.LastOperation)
+			return predicateutils.ReconciliationFinishedSuccessfully(e.ObjectOld.Status.LastOperation, e.ObjectNew.Status.LastOperation)
 		},
-		DeleteFunc:  func(event.DeleteEvent) bool { return false },
-		GenericFunc: func(event.GenericEvent) bool { return false },
+		DeleteFunc:  func(event.TypedDeleteEvent[*gardencorev1beta1.Seed]) bool { return false },
+		GenericFunc: func(event.TypedGenericEvent[*gardencorev1beta1.Seed]) bool { return false },
 	}
 }
 
 // IsSystemComponent returns a predicate which evaluates to true in case the gardener.cloud/role=system-component label
 // is present.
-func (r *Reconciler) IsSystemComponent() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+func (r *Reconciler) IsSystemComponent() predicate.TypedPredicate[*resourcesv1alpha1.ManagedResource] {
+	return predicate.NewTypedPredicateFuncs(func(obj *resourcesv1alpha1.ManagedResource) bool {
 		return obj.GetLabels()[v1beta1constants.GardenRole] == v1beta1constants.GardenRoleSeedSystemComponent
 	})
 }

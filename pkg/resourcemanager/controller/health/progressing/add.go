@@ -94,7 +94,7 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, sour
 		if err := c.Watch(
 			source.Kind(targetCluster.GetCache(),
 				obj,
-				mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), utils.MapToOriginManagedResource(clusterID), mapper.UpdateWithNew, c.GetLogger()),
+				mapper.TypedEnqueueRequestsFrom[client.Object](ctx, mgr.GetCache(), utils.MapToOriginManagedResource(clusterID), mapper.UpdateWithNew, c.GetLogger()),
 				r.ProgressingStatusChanged(ctx)),
 		); err != nil {
 			return err
@@ -109,8 +109,8 @@ func (r *Reconciler) AddToManager(ctx context.Context, mgr manager.Manager, sour
 			if err := c.Watch(
 				source.Kind(targetCluster.GetCache(),
 					pod,
-					mapper.EnqueueRequestsFrom(ctx, mgr.GetCache(), r.MapPodToDeploymentToOriginManagedResource(clusterID), mapper.UpdateWithNew, c.GetLogger()),
-					predicateutils.ForEventTypes(predicateutils.Create, predicateutils.Delete)),
+					mapper.TypedEnqueueRequestsFrom[*metav1.PartialObjectMetadata](ctx, mgr.GetCache(), r.MapPodToDeploymentToOriginManagedResource(clusterID), mapper.UpdateWithNew, c.GetLogger()),
+					predicateutils.TypedForEventTypes[*metav1.PartialObjectMetadata](predicateutils.Create, predicateutils.Delete)),
 			); err != nil {
 				return err
 			}

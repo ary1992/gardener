@@ -57,6 +57,11 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, gardenCluster cluster.Clu
 		r.ClientCertificateExpirationTimestamp = &metav1.Time{Time: gardenletClientCertificate.Leaf.NotAfter}
 	}
 
+	predicates := []predicate.TypedPredicate[*gardencorev1beta1.Seed]{
+		predicateutils.HasName[*gardencorev1beta1.Seed](r.Config.SeedConfig.Name),
+		predicate.TypedGenerationChangedPredicate[*gardencorev1beta1.Seed]{},
+	}
+
 	c, err := builder.
 		ControllerManagedBy(mgr).
 		Named(ControllerName).
@@ -66,10 +71,7 @@ func (r *Reconciler) AddToManager(mgr manager.Manager, gardenCluster cluster.Clu
 		WatchesRawSource(
 			source.Kind(gardenCluster.GetCache(), &gardencorev1beta1.Seed{},
 				&handler.TypedEnqueueRequestForObject[*gardencorev1beta1.Seed]{},
-				builder.WithPredicates(
-					predicateutils.HasName(r.Config.SeedConfig.Name),
-					predicate.GenerationChangedPredicate{},
-				)),
+				predicates...),
 		).
 		Build(r)
 	if err != nil {

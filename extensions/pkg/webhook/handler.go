@@ -168,7 +168,7 @@ func handle(ctx context.Context, req admission.Request, m handlerAction, t clien
 	}
 
 	// Run object through predicates
-	if !predicateutils.EvalGeneric(obj, predicates...) {
+	if !predicateutils.TypedEvalGeneric(obj, predicates...) {
 		return admission.ValidationResponse(true, "")
 	}
 

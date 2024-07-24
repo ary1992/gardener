@@ -22,7 +22,7 @@ import (
 )
 
 type secretToBackupEntryMapper struct {
-	predicates []predicate.Predicate
+	predicates []predicate.TypedPredicate[*extensionsv1alpha1.BackupEntry]
 }
 
 func (m *secretToBackupEntryMapper) Map(ctx context.Context, _ logr.Logger, reader client.Reader, obj client.Object) []reconcile.Request {
@@ -37,7 +37,7 @@ func (m *secretToBackupEntryMapper) Map(ctx context.Context, _ logr.Logger, read
 	var requests []reconcile.Request
 	for _, backupEntry := range backupEntryList.Items {
 		if backupEntry.Spec.SecretRef.Name == obj.GetName() && backupEntry.Spec.SecretRef.Namespace == obj.GetNamespace() {
-			if predicateutils.EvalGeneric(&backupEntry, m.predicates...) {
+			if predicateutils.TypedEvalGeneric(&backupEntry, m.predicates...) {
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
 						Name: backupEntry.Name,
@@ -52,12 +52,12 @@ func (m *secretToBackupEntryMapper) Map(ctx context.Context, _ logr.Logger, read
 
 // SecretToBackupEntryMapper returns a mapper that returns requests for BackupEntry whose
 // referenced secrets have been modified.
-func SecretToBackupEntryMapper(predicates []predicate.Predicate) mapper.Mapper {
+func SecretToBackupEntryMapper(predicates []predicate.TypedPredicate[*extensionsv1alpha1.BackupEntry]) mapper.Mapper {
 	return &secretToBackupEntryMapper{predicates: predicates}
 }
 
 type namespaceToBackupEntryMapper struct {
-	predicates []predicate.Predicate
+	predicates []predicate.TypedPredicate[*extensionsv1alpha1.BackupEntry]
 }
 
 func (m *namespaceToBackupEntryMapper) Map(ctx context.Context, _ logr.Logger, reader client.Reader, obj client.Object) []reconcile.Request {
@@ -78,7 +78,7 @@ func (m *namespaceToBackupEntryMapper) Map(ctx context.Context, _ logr.Logger, r
 
 	var requests []reconcile.Request
 	for _, backupEntry := range backupEntryList.Items {
-		if !predicateutils.EvalGeneric(&backupEntry, m.predicates...) {
+		if !predicateutils.TypedEvalGeneric(&backupEntry, m.predicates...) {
 			continue
 		}
 
@@ -96,6 +96,6 @@ func (m *namespaceToBackupEntryMapper) Map(ctx context.Context, _ logr.Logger, r
 
 // NamespaceToBackupEntryMapper returns a mapper that returns requests for BackupEntry whose
 // associated Shoot's seed namespace have been modified.
-func NamespaceToBackupEntryMapper(predicates []predicate.Predicate) mapper.Mapper {
+func NamespaceToBackupEntryMapper(predicates []predicate.TypedPredicate[*extensionsv1alpha1.BackupEntry]) mapper.Mapper {
 	return &namespaceToBackupEntryMapper{predicates: predicates}
 }

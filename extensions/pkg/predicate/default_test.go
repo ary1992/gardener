@@ -19,7 +19,7 @@ import (
 var _ = Describe("Default", func() {
 	Describe("DefaultControllerPredicates", func() {
 		var (
-			pred      predicate.Predicate
+			pred      predicate.TypedPredicate[*extensionsv1alpha1.Infrastructure]
 			obj       *extensionsv1alpha1.Infrastructure
 			namespace = "shoot--foo--bar"
 		)
@@ -30,18 +30,18 @@ var _ = Describe("Default", func() {
 
 		When("operation annotation is not ignored", func() {
 			BeforeEach(func() {
-				pred = DefaultControllerPredicates(false)[0]
+				pred = DefaultControllerPredicates[*extensionsv1alpha1.Infrastructure](false)[0]
 			})
 
 			Describe("#Create", func() {
 				It("should return false when object is nil", func() {
-					Expect(pred.Create(event.CreateEvent{})).To(BeFalse())
+					Expect(pred.Create(event.TypedCreateEvent[*extensionsv1alpha1.Infrastructure]{})).To(BeFalse())
 				})
 
 				DescribeTable("return true when operation annotation is set",
 					func(operation string) {
 						obj.SetAnnotations(map[string]string{"gardener.cloud/operation": operation})
-						Expect(pred.Create(event.CreateEvent{Object: obj})).To(BeTrue())
+						Expect(pred.Create(event.TypedCreateEvent[*extensionsv1alpha1.Infrastructure]{Object: obj})).To(BeTrue())
 					},
 
 					Entry("reconcile", "reconcile"),
@@ -51,13 +51,13 @@ var _ = Describe("Default", func() {
 
 				It("should return true when the deletion timestamp is set", func() {
 					obj.SetDeletionTimestamp(&metav1.Time{})
-					Expect(pred.Create(event.CreateEvent{Object: obj})).To(BeTrue())
+					Expect(pred.Create(event.TypedCreateEvent[*extensionsv1alpha1.Infrastructure]{Object: obj})).To(BeTrue())
 				})
 
 				DescribeTable("return true when last operation has not succeeded",
 					func(state gardencorev1beta1.LastOperationState) {
 						obj.Status.LastOperation = &gardencorev1beta1.LastOperation{State: state}
-						Expect(pred.Create(event.CreateEvent{Object: obj})).To(BeTrue())
+						Expect(pred.Create(event.TypedCreateEvent[*extensionsv1alpha1.Infrastructure]{Object: obj})).To(BeTrue())
 					},
 
 					Entry("processing", gardencorev1beta1.LastOperationStateProcessing),
@@ -68,12 +68,12 @@ var _ = Describe("Default", func() {
 				)
 
 				It("should return true when the last operation is not yet set", func() {
-					Expect(pred.Create(event.CreateEvent{Object: obj})).To(BeTrue())
+					Expect(pred.Create(event.TypedCreateEvent[*extensionsv1alpha1.Infrastructure]{Object: obj})).To(BeTrue())
 				})
 
 				It("should return false when operation annotation is not present, object has no deletion timestamp and last operation has not succeeded", func() {
 					obj.Status.LastOperation = &gardencorev1beta1.LastOperation{State: gardencorev1beta1.LastOperationStateSucceeded}
-					Expect(pred.Create(event.CreateEvent{Object: obj})).To(BeFalse())
+					Expect(pred.Create(event.TypedCreateEvent[*extensionsv1alpha1.Infrastructure]{Object: obj})).To(BeFalse())
 				})
 			})
 
@@ -81,7 +81,7 @@ var _ = Describe("Default", func() {
 				DescribeTable("return true when operation annotation is set",
 					func(operation string) {
 						obj.SetAnnotations(map[string]string{"gardener.cloud/operation": operation})
-						Expect(pred.Update(event.UpdateEvent{ObjectNew: obj})).To(BeTrue())
+						Expect(pred.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Infrastructure]{ObjectNew: obj})).To(BeTrue())
 					},
 
 					Entry("reconcile", "reconcile"),
@@ -92,26 +92,26 @@ var _ = Describe("Default", func() {
 				It("should return true when the deletion timestamp is set and the status is equal", func() {
 					obj.SetDeletionTimestamp(&metav1.Time{})
 					oldObj := obj.DeepCopy()
-					Expect(pred.Update(event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj})).To(BeTrue())
+					Expect(pred.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Infrastructure]{ObjectNew: obj, ObjectOld: oldObj})).To(BeTrue())
 				})
 
 				It("should return false when the deletion timestamp is set and the status changed", func() {
 					obj.SetDeletionTimestamp(&metav1.Time{})
 					oldObj := obj.DeepCopy()
 					obj.Status.ObservedGeneration = 3
-					Expect(pred.Update(event.UpdateEvent{ObjectNew: obj, ObjectOld: oldObj})).To(BeFalse())
+					Expect(pred.Update(event.TypedUpdateEvent[*extensionsv1alpha1.Infrastructure]{ObjectNew: obj, ObjectOld: oldObj})).To(BeFalse())
 				})
 			})
 
 			Describe("#Delete", func() {
 				It("should return false", func() {
-					Expect(pred.Delete(event.DeleteEvent{})).To(BeFalse())
+					Expect(pred.Delete(event.TypedDeleteEvent[*extensionsv1alpha1.Infrastructure]{})).To(BeFalse())
 				})
 			})
 
 			Describe("#Generic", func() {
 				It("should return false", func() {
-					Expect(pred.Generic(event.GenericEvent{})).To(BeFalse())
+					Expect(pred.Generic(event.TypedGenericEvent[*extensionsv1alpha1.Infrastructure]{})).To(BeFalse())
 				})
 			})
 		})

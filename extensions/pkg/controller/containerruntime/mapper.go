@@ -15,6 +15,6 @@ import (
 
 // ClusterToContainerResourceMapper returns a mapper that returns requests for Container resource whose
 // referenced clusters have been modified.
-func ClusterToContainerResourceMapper(mgr manager.Manager, predicates ...predicate.Predicate) mapper.Mapper {
+func ClusterToContainerResourceMapper(mgr manager.Manager, predicates ...predicate.TypedPredicate[*extensionsv1alpha1.ContainerRuntime]) mapper.Mapper {
 	return mapper.ClusterToObjectMapper(mgr, func() client.ObjectList { return &extensionsv1alpha1.ContainerRuntimeList{} }, predicates)
 }

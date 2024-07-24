@@ -41,7 +41,7 @@ type AddArgs struct {
 	ControllerOptions controller.Options
 	// Predicates are the predicates to use.
 	// If unset, GenerationChanged will be used.
-	Predicates []predicate.Predicate
+	Predicates []predicate.TypedPredicate[extensionsv1alpha1.Object]
 	// Type is the type of the resource considered for reconciliation.
 	Type string
 	// SyncPeriod is the duration how often the registered extension is being reconciled
@@ -86,7 +86,7 @@ type RegisteredExtension struct {
 // custom predicates allow for fine-grained control which resources to watch
 // healthChecks defines the checks to execute mapped to the healthConditionTypes its contributing to (e.g checkDeployment in Seed -> ControlPlaneHealthy).
 // register returns a runtime representation of the extension resource to register it with the controller-runtime
-func DefaultRegistration(ctx context.Context, extensionType string, kind schema.GroupVersionKind, getExtensionObjListFunc GetExtensionObjectListFunc, getExtensionObjFunc GetExtensionObjectFunc, mgr manager.Manager, opts DefaultAddArgs, customPredicates []predicate.Predicate, healthChecks []ConditionTypeToHealthCheck, conditionTypesToRemove sets.Set[gardencorev1beta1.ConditionType]) error {
+func DefaultRegistration(ctx context.Context, extensionType string, kind schema.GroupVersionKind, getExtensionObjListFunc GetExtensionObjectListFunc, getExtensionObjFunc GetExtensionObjectFunc, mgr manager.Manager, opts DefaultAddArgs, customPredicates []predicate.TypedPredicate[extensionsv1alpha1.Object], healthChecks []ConditionTypeToHealthCheck, conditionTypesToRemove sets.Set[gardencorev1beta1.ConditionType]) error {
 	predicates := append(DefaultPredicates(), customPredicates...)
 	opts.Controller.RecoverPanic = ptr.To(true)
 
@@ -138,11 +138,11 @@ func (a *AddArgs) GetExtensionGroupVersionKind() schema.GroupVersionKind {
 }
 
 // DefaultPredicates returns the default predicates.
-func DefaultPredicates() []predicate.Predicate {
-	return []predicate.Predicate{
+func DefaultPredicates() []predicate.TypedPredicate[extensionsv1alpha1.Object] {
+	return []predicate.TypedPredicate[extensionsv1alpha1.Object]{
 		// watch: only requeue on spec change to prevent infinite loop
 		// health checks are being executed every 'sync period' anyways
-		predicate.GenerationChangedPredicate{},
+		predicate.TypedGenerationChangedPredicate[extensionsv1alpha1.Object]{},
 	}
 }
 

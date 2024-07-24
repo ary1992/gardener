@@ -15,6 +15,6 @@ import (
 
 // ClusterToNetworkMapper returns a mapper that returns requests for Network whose
 // referenced clusters have been modified.
-func ClusterToNetworkMapper(mgr manager.Manager, predicates []predicate.Predicate) mapper.Mapper {
+func ClusterToNetworkMapper(mgr manager.Manager, predicates []predicate.TypedPredicate[*extensionsv1alpha1.Network]) mapper.Mapper {
 	return mapper.ClusterToObjectMapper(mgr, func() client.ObjectList { return &extensionsv1alpha1.NetworkList{} }, predicates)
 }
