@@ -787,8 +787,7 @@ spec:
                   type: object
                 type: array
               inPlaceUpdates:
-                description: InPlaceUpdates contains the configuration for in-place
-                  updates.
+                description: InPlaceUpdates contains the status for in-place updates.
                 properties:
                   workerPoolToHashMap:
                     additionalProperties:
