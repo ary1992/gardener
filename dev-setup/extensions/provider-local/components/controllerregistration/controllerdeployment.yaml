@@ -7,7 +7,14 @@ helm:
     ref: local-skaffold/gardener-extension-provider-local/charts/extension:v0.0.0
   values:
     imageVectorOverwrite:
+      imagePullSecretName: my-dockerhub-secret
       images:
       - name: machine-controller-manager-provider-local
-        ref: local-skaffold/machine-controller-manager-provider-local
+        ref: ary92/mcm-provider-local
+        # ref: local-skaffold/machine-controller-manager-provider-local
+        # imagePullSecretName: my-dockerhub-secret    
+      # imagePullSecrets:
+      # - name: my-dockerhub-secret
+      # imagePullSecretRef:
+      #   name: my-dockerhub-secret
 injectGardenKubeconfig: true

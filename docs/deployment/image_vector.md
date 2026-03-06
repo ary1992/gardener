@@ -83,6 +83,39 @@ images:
   version: ">= 1.21"
 ```
 
+### Image Pull Secrets
+
+If images are stored in private registries requiring authentication, you can specify an `imagePullSecretName` at the vector level:
+
+```yaml
+imagePullSecretName: my-registry-secret
+images:
+- name: pause-container
+  repository: my-private-registry.io/pause
+  tag: "3.4"
+- name: another-image
+  repository: my-private-registry.io/another
+  tag: "1.0.0"
+```
+
+The `imagePullSecretName` applies to all images in the vector. Individual images can override this by specifying their own `imagePullSecretName`:
+
+```yaml
+imagePullSecretName: default-secret
+images:
+- name: image1
+  repository: registry1.io/image1
+  tag: "1.0.0"
+  # Uses default-secret
+- name: image2
+  repository: registry2.io/image2
+  tag: "2.0.0"
+  imagePullSecretName: custom-secret  # Overrides default
+```
+
+> [!NOTE]
+> The referenced secret must exist in the appropriate namespace (e.g., for extensions deployed to seed clusters, the secret should be in the `seed-<seedname>` namespace in the garden cluster).
+
 > [!IMPORTANT]
 > When the overwriting file contains `ref` for an image but the source file doesn't, then this invalidates both `repository` and `tag` of the source.
 > When it contains `repository` for an image but the source file uses `ref`, then this invalidates `ref` of the source.
