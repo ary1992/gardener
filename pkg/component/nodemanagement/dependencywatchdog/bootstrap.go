@@ -436,6 +436,8 @@ func (b *bootstrapper) getDeployment(serviceAccountName string, configMapName st
 		},
 	}
 
+	kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
+
 	utilruntime.Must(references.InjectAnnotations(deployment))
 
 	return deployment

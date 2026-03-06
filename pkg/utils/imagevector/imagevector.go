@@ -29,27 +29,37 @@ const (
 )
 
 // Read reads an ImageVector from the given io.Reader.
-func Read(buf []byte) (ImageVector, error) {
+func Read(buf []byte) (ImageVector, *string, error) {
 	vector := struct {
-		Images ImageVector `json:"images" yaml:"images"`
+		Images              ImageVector `json:"images" yaml:"images"`
+		ImagePullSecretName *string     `json:"imagePullSecretName,omitempty" yaml:"imagePullSecretName,omitempty"`
 	}{}
 
 	if err := yaml.Unmarshal(buf, &vector); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if errs := ValidateImageVector(vector.Images, field.NewPath("images")); len(errs) > 0 {
-		return nil, errs.ToAggregate()
+		return nil, nil, errs.ToAggregate()
 	}
 
-	return vector.Images, nil
+	// Apply vector-level imagePullSecretName to all images that don't have their own
+	// if vector.ImagePullSecretName != nil {
+	// 	for _, image := range vector.Images {
+	// 		if image.ImagePullSecretName == nil {
+	// 			image.ImagePullSecretName = vector.ImagePullSecretName
+	// 		}
+	// 	}
+	// }
+
+	return vector.Images, vector.ImagePullSecretName, nil
 }
 
 // ReadFile reads an ImageVector from the file with the given name.
-func ReadFile(name string) (ImageVector, error) {
+func ReadFile(name string) (ImageVector, *string, error) {
 	buf, err := os.ReadFile(name) // #nosec: G304 -- ImageVectorOverwrite is a feature. In reality files can be read from the Pod's file system only.
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return Read(buf)
@@ -101,6 +111,12 @@ func mergeImageSources(old, override *ImageSource) *ImageSource {
 		architectures = old.Architectures
 	}
 
+	// ImagePullSecretName: prefer override, fallback to old
+	// imagePullSecretName := override.ImagePullSecretName
+	// if imagePullSecretName == nil {
+	// 	imagePullSecretName = old.ImagePullSecretName
+	// }
+
 	return &ImageSource{
 		Name:           override.Name,
 		RuntimeVersion: runtimeVersion,
@@ -110,6 +126,7 @@ func mergeImageSources(old, override *ImageSource) *ImageSource {
 		Repository:     repository,
 		Tag:            tag,
 		Version:        version,
+		// ImagePullSecretName: imagePullSecretName,
 	}
 }
 
@@ -175,18 +192,24 @@ func Merge(vectors ...ImageVector) ImageVector {
 // WithEnvOverride checks if an environment variable with the provided key is set.
 // If yes, it reads the ImageVector at the value of the variable and merges it with the given one.
 // Otherwise, it returns the unmodified ImageVector.
-func WithEnvOverride(vector ImageVector, env string) (ImageVector, error) {
+func WithEnvOverride(vector ImageVector, env string, existingImagePullSecretName *string) (ImageVector, *string, error) {
 	overwritePath := os.Getenv(env)
 	if len(overwritePath) == 0 {
-		return vector, nil
+		return vector, existingImagePullSecretName, nil
 	}
 
-	override, err := ReadFile(overwritePath)
+	override, imagepullSecret, err := ReadFile(overwritePath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return Merge(vector, override), nil
+	// If override doesn't specify imagePullSecretName, preserve the existing one
+	resultImagePullSecretName := imagepullSecret
+	if resultImagePullSecretName == nil {
+		resultImagePullSecretName = existingImagePullSecretName
+	}
+
+	return Merge(vector, override), resultImagePullSecretName, nil
 }
 
 // String implements Stringer.
@@ -374,6 +397,7 @@ func (i *ImageSource) ToImage(targetVersion *string) *Image {
 			Name:    i.Name,
 			Ref:     i.Ref,
 			Version: i.Version,
+			// ImagePullSecretName: i.ImagePullSecretName,
 		}
 	}
 
@@ -393,6 +417,7 @@ func (i *ImageSource) ToImage(targetVersion *string) *Image {
 		Repository: i.Repository,
 		Tag:        tag,
 		Version:    version,
+		// ImagePullSecretName: i.ImagePullSecretName,
 	}
 }
 

@@ -23,6 +23,7 @@ import (
 	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/component"
+	kubernetesutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/managedresources"
 )
 
@@ -511,6 +512,9 @@ func (k *kubernetesDashboard) computeResourcesData() (map[string][]byte, error) 
 			Value: *k.values.APIServerHost,
 		})
 	}
+
+	kubernetesutils.InjectImagePullSecret(&deploymentDashboard.Spec.Template.Spec)
+	kubernetesutils.InjectImagePullSecret(&deploymentMetricsScraper.Spec.Template.Spec)
 
 	return registry.AddAllAndSerialize(
 		namespace,

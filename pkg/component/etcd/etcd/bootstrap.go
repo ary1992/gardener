@@ -44,7 +44,7 @@ import (
 	"github.com/gardener/gardener/pkg/resourcemanager/controller/garbagecollector/references"
 	"github.com/gardener/gardener/pkg/utils"
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
-	"github.com/gardener/gardener/pkg/utils/imagevector"
+	imagevectorutils "github.com/gardener/gardener/pkg/utils/imagevector"
 	kubernetesutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/managedresources"
 	secretsutils "github.com/gardener/gardener/pkg/utils/secrets"
@@ -577,11 +577,12 @@ func (b *bootstrapper) Deploy(ctx context.Context) error {
 			ReadOnly:  true,
 		})
 		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
-			Name:  imagevector.OverrideEnv,
+			Name:  imagevectorutils.OverrideEnv,
 			Value: druidDeploymentVolumeMountPathImageVectorOverwrite + "/" + druidConfigMapImageVectorOverwriteDataKey,
 		})
 	}
 
+	kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
 	utilruntime.Must(references.InjectAnnotations(deployment))
 
 	resources, err := registry.AddAllAndSerialize(append(resourcesToAdd, deployment)...)

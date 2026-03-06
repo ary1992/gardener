@@ -27,6 +27,7 @@ import (
 	"github.com/gardener/gardener/pkg/gardenlet/controller/controllerinstallation"
 	"github.com/gardener/gardener/pkg/gardenlet/controller/gardenlet"
 	"github.com/gardener/gardener/pkg/gardenlet/controller/managedseed"
+	"github.com/gardener/gardener/pkg/gardenlet/controller/namespace"
 	"github.com/gardener/gardener/pkg/gardenlet/controller/networkpolicy"
 	"github.com/gardener/gardener/pkg/gardenlet/controller/seed"
 	"github.com/gardener/gardener/pkg/gardenlet/controller/shoot"
@@ -162,6 +163,10 @@ func AddToManager(
 
 	if err := networkpolicy.AddToManager(ctx, mgr, gardenletCancel, seedCluster, *cfg.Controllers.NetworkPolicy, cfg.SeedConfig.Spec.Networks, nil); err != nil {
 		return fmt.Errorf("failed adding NetworkPolicy controller: %w", err)
+	}
+
+	if err := (&namespace.Reconciler{}).AddToManager(ctx, mgr, gardenCluster.GetClient(), seedCluster, "", cfg.SeedConfig.Name); err != nil {
+		return fmt.Errorf("failed adding Namespace ImagePullSecret controller: %w", err)
 	}
 
 	if err := seed.AddToManager(mgr, gardenCluster, seedCluster, seedClientSet, *cfg, identity, healthManager); err != nil {

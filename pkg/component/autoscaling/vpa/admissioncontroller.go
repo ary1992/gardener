@@ -297,6 +297,8 @@ func (v *vpa) reconcileAdmissionControllerDeployment(deployment *appsv1.Deployme
 		})
 	}
 
+	kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
+
 	v.injectAPIServerConnectionSpec(deployment, admissionController, serviceAccountName)
 }
 

@@ -51,6 +51,7 @@ type actuator struct {
 // NewActuator creates a new Actuator that updates the status of the handled WorkerPoolConfigs.
 func NewActuator(mgr manager.Manager, gardenCluster cluster.Cluster) worker.Actuator {
 	workerDelegate := &delegateFactory{
+		gardenReader:  gardenCluster.GetAPIReader(),
 		runtimeClient: mgr.GetClient(),
 		decoder:       serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 		restConfig:    mgr.GetConfig(),
@@ -152,10 +153,11 @@ func (d *delegateFactory) WorkerDelegate(ctx context.Context, worker *extensions
 		return nil, err
 	}
 
-	return NewWorkerDelegate(
+	delegate, err := NewWorkerDelegate(
 		ctx,
 		logf.FromContext(ctx),
 		d.runtimeClient,
+		d.gardenReader,
 		d.restConfig,
 		d.decoder,
 		d.scheme,
@@ -164,6 +166,16 @@ func (d *delegateFactory) WorkerDelegate(ctx context.Context, worker *extensions
 		worker,
 		cluster,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Pass garden reader if available
+	if wd, ok := delegate.(*workerDelegate); ok && d.gardenReader != nil {
+		wd.gardenReader = d.gardenReader
+	}
+
+	return delegate, nil
 }
 
 type workerDelegate struct {
@@ -171,6 +183,8 @@ type workerDelegate struct {
 	// It's used to interact with extension objects. By default, it's also used as the provider client to interact with
 	// infrastructure resources, unless a kubeconfig is specified in the cloudprovider secret.
 	runtimeClient client.Client
+	// gardenReader is a client for reading resources from the garden cluster
+	gardenReader client.Reader
 	// providerClient is a client for the cluster in which provider-local should manage infrastructure resources,
 	// e.g., Services, NetworkPolicies, machine Pods, etc. If the provider secret contains a kubeconfig, a client for that
 	// kubeconfig is created. Otherwise, the given client for the runtime cluster is returned.
@@ -196,6 +210,7 @@ func NewWorkerDelegate(
 	ctx context.Context,
 	log logr.Logger,
 	runtimeClient client.Client,
+	gardenReader client.Reader,
 	restConfig *rest.Config,
 	decoder runtime.Decoder,
 	scheme *runtime.Scheme,
@@ -242,6 +257,7 @@ func NewWorkerDelegate(
 	return &workerDelegate{
 		scheme:             scheme,
 		runtimeClient:      runtimeClient,
+		gardenReader:       gardenReader,
 		providerClient:     providerClient,
 		decoder:            decoder,
 		seedChartApplier:   seedChartApplier,

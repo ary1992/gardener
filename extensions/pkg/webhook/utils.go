@@ -235,6 +235,16 @@ func EnsureContainerWithName(items []corev1.Container, item corev1.Container) []
 	return items
 }
 
+func EnsureImagePullSecretWithName(items []corev1.LocalObjectReference, name string) []corev1.LocalObjectReference {
+	i := slices.IndexFunc(items, func(ips corev1.LocalObjectReference) bool {
+		return ips.Name == name
+	})
+	if i < 0 {
+		return append(items, corev1.LocalObjectReference{Name: name})
+	}
+	return items
+}
+
 // EnsureNoContainerWithName ensures that a Container with the given name does not exist in the given slice.
 func EnsureNoContainerWithName(items []corev1.Container, name string) []corev1.Container {
 	return slices.DeleteFunc(items, func(c corev1.Container) bool {

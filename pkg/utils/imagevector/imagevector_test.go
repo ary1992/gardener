@@ -299,13 +299,13 @@ images:
 
 		Describe("#Read", func() {
 			It("should successfully read a JSON image vector", func() {
-				vector, err := Read([]byte(image1Src1VectorJSON))
+				vector, _, err := Read([]byte(image1Src1VectorJSON))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(vector).To(Equal(image1Src1Vector))
 			})
 
 			It("should successfully read a YAML image vector", func() {
-				vector, err := Read([]byte(image1Src1VectorYAML))
+				vector, _, err := Read([]byte(image1Src1VectorYAML))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(vector).To(Equal(image1Src1Vector))
 			})
@@ -316,7 +316,7 @@ images:
 				tmpFile, cleanup := withTempFile("imagevector", []byte(image1Src1VectorJSON))
 				defer cleanup()
 
-				vector, err := ReadFile(tmpFile.Name())
+				vector, _, err := ReadFile(tmpFile.Name())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(vector).To(Equal(image1Src1Vector))
 			})
@@ -347,11 +347,11 @@ images:
 				defer cleanup()
 				defer test.WithEnvVar(OverrideEnv, file.Name())()
 
-				Expect(WithEnvOverride(vector, "IMAGEVECTOR_OVERWRITE")).To(Equal(ImageVector{image1Src1, image2Src1}))
+				Expect(WithEnvOverride(vector, "IMAGEVECTOR_OVERWRITE", nil)).To(Equal(ImageVector{image1Src1, image2Src1}))
 			})
 
 			It("should keep the vector as-is if the env variable is not set", func() {
-				Expect(WithEnvOverride(image1Src1Vector, "IMAGEVECTOR_OVERWRITE")).To(Equal(image1Src1Vector))
+				Expect(WithEnvOverride(image1Src1Vector, "IMAGEVECTOR_OVERWRITE", nil)).To(Equal(image1Src1Vector))
 			})
 		})
 

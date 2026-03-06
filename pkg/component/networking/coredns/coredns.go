@@ -774,6 +774,9 @@ import custom/*.server
 		service.Spec.ClusterIPs = append(service.Spec.ClusterIPs, ip.String())
 	}
 
+	kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
+	kubernetesutils.InjectImagePullSecret(&clusterProportionalDNSAutoscalerDeployment.Spec.Template.Spec)
+
 	if c.values.AutoscalingMode == gardencorev1beta1.CoreDNSAutoscalingModeClusterProportional {
 		managedObjects = append(managedObjects,
 			clusterProportionalDNSAutoscalerServiceAccount,

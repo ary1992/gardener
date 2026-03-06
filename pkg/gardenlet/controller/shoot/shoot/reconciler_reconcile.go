@@ -162,6 +162,11 @@ func (r *Reconciler) runReconcileShootFlow(ctx context.Context, o *operation.Ope
 			Name: "Deploying Shoot namespace in Seed",
 			Fn:   flow.TaskFn(botanist.DeployControlPlaneNamespace).RetryUntilTimeout(defaultInterval, defaultTimeout),
 		})
+		_ = g.Add(flow.Task{
+			Name:         "Replicating image pull secret from garden to seed cluster",
+			Fn:           flow.TaskFn(botanist.ReplicateImagePullSecretToSeed).RetryUntilTimeout(defaultInterval, defaultTimeout),
+			Dependencies: flow.NewTaskIDs(deployNamespace),
+		})
 		ensureShootClusterIdentity = g.Add(flow.Task{
 			Name:         "Ensuring Shoot cluster identity",
 			Fn:           flow.TaskFn(botanist.EnsureShootClusterIdentity).RetryUntilTimeout(defaultInterval, defaultTimeout),
@@ -435,6 +440,11 @@ func (r *Reconciler) runReconcileShootFlow(ctx context.Context, o *operation.Ope
 			Fn:           botanist.Shoot.Components.SystemComponents.Namespaces.Wait,
 			SkipIf:       o.Shoot.HibernationEnabled || skipReadiness,
 			Dependencies: flow.NewTaskIDs(waitUntilGardenerResourceManagerReady, deployShootNamespaces),
+		})
+		_ = g.Add(flow.Task{
+			Name:         "Deploying imagePullSecret to shoot cluster",
+			Fn:           flow.TaskFn(botanist.DeployImagePullSecretToShoot).RetryUntilTimeout(defaultInterval, defaultTimeout),
+			Dependencies: flow.NewTaskIDs(waitUntilGardenerResourceManagerReady, waitUntilShootNamespacesReady),
 		})
 		deployVPNSeedServer = g.Add(flow.Task{
 			Name:         "Deploying vpn-seed-server",

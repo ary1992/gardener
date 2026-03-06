@@ -26,6 +26,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/gardener/gardener/imagevector"
 	"github.com/gardener/gardener/pkg/utils/kubernetes/health"
 )
 
@@ -274,6 +275,15 @@ func InjectKubernetesServiceHostEnv(containers []corev1.Container, host string) 
 			Name:      "KUBERNETES_SERVICE_HOST",
 			Value:     host,
 			ValueFrom: nil,
+		})
+	}
+}
+
+// InjectImagePullSecret injects the image pull secret configured in the image vector into the given PodSpec.
+func InjectImagePullSecret(podSpec *corev1.PodSpec) {
+	if imagevector.ContainerImagePullSecretName() != nil {
+		podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets, corev1.LocalObjectReference{
+			Name: *imagevector.ContainerImagePullSecretName(),
 		})
 	}
 }

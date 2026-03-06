@@ -22,6 +22,7 @@ import (
 	"github.com/gardener/gardener/pkg/resourcemanager/controller/garbagecollector/references"
 	"github.com/gardener/gardener/pkg/utils"
 	gardenerutils "github.com/gardener/gardener/pkg/utils/gardener"
+	kubernetesutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	secretsutils "github.com/gardener/gardener/pkg/utils/secrets"
 )
 
@@ -152,6 +153,7 @@ func (g *gardenerAPIServer) deployment(
 		},
 	}
 
+	kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
 	injectWorkloadIdentitySettings(deployment, g.values.WorkloadIdentityTokenIssuer, secretWorkloadIdentitySigningKey)
 	apiserver.InjectDefaultSettings(deployment, operatorv1alpha1.VirtualGardenNamePrefix, g.values.Values, secretCAETCD, secretETCDClient, secretServer)
 	apiserver.InjectAuditSettings(deployment, configMapAuditPolicy, secretAuditWebhookKubeconfig, g.values.Audit)

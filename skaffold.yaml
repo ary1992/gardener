@@ -1663,7 +1663,11 @@ deploy:
           # overwrite our image vector to use the image that was just built
           # see https://skaffold.dev/docs/deployers/helm/#image-configuration
           imageVectorOverwrite: |
+            imagePullSecretName: my-dockerhub-secret
             images:
+            - name: vali
+              repository: ary92/vali
+              tag: v2.2.30
             - name: gardenlet
               repository: '{{.IMAGE_REPO_local_skaffold_gardenlet}}'
               tag: '{{.IMAGE_TAG_local_skaffold_gardenlet}}@{{.IMAGE_DIGEST_local_skaffold_gardenlet}}'

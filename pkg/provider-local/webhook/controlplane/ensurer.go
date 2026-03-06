@@ -44,9 +44,18 @@ func (e *ensurer) EnsureMachineControllerManagerDeployment(ctx context.Context, 
 		return err
 	}
 
+	imagePullSecretName := imagevector.ImagePullSecretName()
+
 	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
 		return fmt.Errorf("failed reading Cluster: %w", err)
+	}
+
+	if imagePullSecretName != nil {
+		newObj.Spec.Template.Spec.ImagePullSecrets = webhook.EnsureImagePullSecretWithName(
+			newObj.Spec.Template.Spec.ImagePullSecrets,
+			*imagePullSecretName,
+		)
 	}
 
 	newObj.Spec.Template.Spec.Containers = webhook.EnsureContainerWithName(

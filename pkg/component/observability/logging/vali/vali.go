@@ -679,6 +679,8 @@ func (v *vali) getStatefulSet(valiConfigMapName, telegrafConfigMapName, genericT
 		}
 	)
 
+	kubernetesutils.InjectImagePullSecret(&statefulSet.Spec.Template.Spec)
+
 	if v.values.Storage != nil {
 		statefulSet.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests[corev1.ResourceStorage] = *v.values.Storage
 	}

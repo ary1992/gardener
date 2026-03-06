@@ -738,6 +738,9 @@ func (n *nginxIngress) computeResourcesData() (map[string][]byte, error) {
 		}
 	}
 
+	kubernetesutils.InjectImagePullSecret(&deploymentController.Spec.Template.Spec)
+	kubernetesutils.InjectImagePullSecret(&deploymentBackend.Spec.Template.Spec)
+
 	objectsToAdd := append(virtualServices, gateway)
 	if !n.values.SeedIsGarden || n.values.ClusterType != component.ClusterTypeSeed {
 		objectsToAdd = append(objectsToAdd,

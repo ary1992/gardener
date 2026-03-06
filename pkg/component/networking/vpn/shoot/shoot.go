@@ -691,7 +691,7 @@ func (v *vpnShoot) deployment(labels map[string]string, template *corev1.PodTemp
 		replicas   = 1
 	)
 
-	return &appsv1.Deployment{
+	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: metav1.NamespaceSystem,
@@ -713,6 +713,10 @@ func (v *vpnShoot) deployment(labels map[string]string, template *corev1.PodTemp
 			Template: *template,
 		},
 	}
+
+	kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
+
+	return deployment
 }
 
 func (v *vpnShoot) statefulSet(labels map[string]string, template *corev1.PodTemplateSpec) *appsv1.StatefulSet {

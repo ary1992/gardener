@@ -163,6 +163,19 @@ func (r *Reconciler) runReconcileSeedFlow(
 		return err
 	}
 
+	// Replicate imagePullSecrets to all namespaces in the seed cluster
+	log.Info("Replicating imagePullSecrets to all namespaces in seed cluster")
+	if err := gardenerutils.ReplicateImagePullSecretsToAllNamespaces(
+		ctx,
+		log,
+		r.GardenClient,
+		r.SeedClientSet.Client(),
+		gardenerutils.ComputeGardenNamespace(seed.GetInfo().Name),
+	); err != nil {
+		log.Error(err, "Failed to replicate imagePullSecrets to all seed namespaces")
+		// Don't fail the reconciliation as this is not critical
+	}
+
 	var alertingSMTPSecret *corev1.Secret
 	if secret, ok := secrets[v1beta1constants.GardenRoleAlerting]; ok && string(secret.Data["auth_type"]) == "smtp" {
 		alertingSMTPSecret = secret

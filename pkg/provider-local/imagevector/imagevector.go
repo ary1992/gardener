@@ -15,21 +15,27 @@ import (
 
 var (
 	//go:embed images.yaml
-	imagesYAML  string
-	imageVector imagevector.ImageVector
+	imagesYAML      string
+	imageVector     imagevector.ImageVector
+	imagePullSecret *string
 )
 
 func init() {
 	var err error
 
-	imageVector, err = imagevector.Read([]byte(imagesYAML))
+	imageVector, imagePullSecret, err = imagevector.Read([]byte(imagesYAML))
 	runtime.Must(err)
 
-	imageVector, err = imagevector.WithEnvOverride(imageVector, imagevector.OverrideEnv)
+	imageVector, imagePullSecret, err = imagevector.WithEnvOverride(imageVector, imagevector.OverrideEnv, imagePullSecret)
 	runtime.Must(err)
 }
 
 // ImageVector is the image vector that contains all the needed images.
 func ImageVector() imagevector.ImageVector {
 	return imageVector
+}
+
+// ImagePullSecretName returns the name of the image pull secret to be used for pulling images, or nil if no image pull secret is configured.
+func ImagePullSecretName() *string {
+	return imagePullSecret
 }

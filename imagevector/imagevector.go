@@ -18,25 +18,27 @@ import (
 
 var (
 	//go:embed containers.yaml
-	containersYAML        string
-	containersImageVector imagevector.ImageVector
+	containersYAML               string
+	containersImageVector        imagevector.ImageVector
+	containerImagePullSecretName *string
 
 	//go:embed charts.yaml
-	chartsYAML        string
-	chartsImageVector imagevector.ImageVector
+	chartsYAML               string
+	chartsImageVector        imagevector.ImageVector
+	chartImagePullSecretName *string
 )
 
 func init() {
 	var err error
 
-	containersImageVector, err = imagevector.Read([]byte(containersYAML))
+	containersImageVector, containerImagePullSecretName, err = imagevector.Read([]byte(containersYAML))
 	runtime.Must(err)
-	containersImageVector, err = imagevector.WithEnvOverride(containersImageVector, imagevector.OverrideEnv)
+	containersImageVector, containerImagePullSecretName, err = imagevector.WithEnvOverride(containersImageVector, imagevector.OverrideEnv, containerImagePullSecretName)
 	runtime.Must(err)
 
-	chartsImageVector, err = imagevector.Read([]byte(chartsYAML))
+	chartsImageVector, chartImagePullSecretName, err = imagevector.Read([]byte(chartsYAML))
 	runtime.Must(err)
-	chartsImageVector, err = imagevector.WithEnvOverride(chartsImageVector, imagevector.OverrideChartsEnv)
+	chartsImageVector, chartImagePullSecretName, err = imagevector.WithEnvOverride(chartsImageVector, imagevector.OverrideChartsEnv, chartImagePullSecretName)
 	runtime.Must(err)
 }
 
@@ -45,7 +47,17 @@ func Containers() imagevector.ImageVector {
 	return containersImageVector
 }
 
+// ContainerImagePullSecretName returns the name of the image pull secret to be used for pulling container images, or nil if no image pull secret is configured.
+func ContainerImagePullSecretName() *string {
+	return containerImagePullSecretName
+}
+
 // Charts is the image vector that contains all the needed Helm chart images.
 func Charts() imagevector.ImageVector {
 	return chartsImageVector
+}
+
+// ChartImagePullSecretName returns the name of the image pull secret to be used for pulling chart images, or nil if no image pull secret is configured.
+func ChartImagePullSecretName() *string {
+	return chartImagePullSecretName
 }

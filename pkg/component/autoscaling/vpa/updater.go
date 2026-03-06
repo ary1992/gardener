@@ -259,6 +259,8 @@ func (v *vpa) reconcileUpdaterDeployment(deployment *appsv1.Deployment, serviceA
 		})
 	}
 
+	kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
+
 	v.injectAPIServerConnectionSpec(deployment, updater, serviceAccountName)
 }
 

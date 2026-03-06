@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
@@ -25,8 +26,10 @@ import (
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	api "github.com/gardener/gardener/pkg/provider-local/apis/local"
 	"github.com/gardener/gardener/pkg/provider-local/controller/infrastructure"
+	"github.com/gardener/gardener/pkg/provider-local/imagevector"
 	"github.com/gardener/gardener/pkg/provider-local/local"
 	machineproviderlocal "github.com/gardener/gardener/pkg/provider-local/machine-provider/local"
+	imagevectorutils "github.com/gardener/gardener/pkg/utils/imagevector"
 )
 
 // DeployMachineClasses generates and creates the local provider specific machine classes.
@@ -35,6 +38,22 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 		if err := w.generateMachineConfig(ctx); err != nil {
 			return err
 		}
+	}
+
+	// Sync imagePullSecrets to the shoot namespace before deploying machine classes
+	// This ensures that machine-controller-manager can pull images from private registries
+	if w.gardenReader != nil {
+		imagePullSecretName := imagevector.ImagePullSecretName()
+
+		imagevectorutils.SyncImagePullSecretsToNamespace(
+			ctx,
+			logf.FromContext(ctx),
+			w.gardenReader,
+			w.runtimeClient,
+			imagePullSecretName,
+			w.cluster.Seed.Name,
+			w.worker.Namespace,
+		)
 	}
 
 	for _, obj := range w.machineClassSecrets {

@@ -488,7 +488,7 @@ func (r *Reconciler) applyNewResources(ctx context.Context, log logr.Logger, ori
 				return fmt.Errorf("error getting metadata of object %q: %s", resource, err)
 			}
 
-			// if the ignore annotation is set to false, do nothing (ignore the resource)
+			// if the ignore annotation is set to true, do nothing (ignore the resource)
 			if ignore(metadata) {
 				annotations := current.GetAnnotations()
 				delete(annotations, descriptionAnnotation)

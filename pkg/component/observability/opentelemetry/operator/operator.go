@@ -25,6 +25,7 @@ import (
 	"github.com/gardener/gardener/pkg/component"
 	"github.com/gardener/gardener/pkg/resourcemanager/controller/garbagecollector/references"
 	"github.com/gardener/gardener/pkg/utils"
+	kubernetesutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/managedresources"
 )
 
@@ -290,7 +291,7 @@ func (o *openTelemetryOperator) roleBinding() *rbacv1.RoleBinding {
 }
 
 func (o *openTelemetryOperator) deployment() *appsv1.Deployment {
-	return &appsv1.Deployment{
+	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v1beta1constants.DeploymentNameOpenTelemetryOperator,
 			Namespace: o.namespace,
@@ -370,6 +371,10 @@ func (o *openTelemetryOperator) deployment() *appsv1.Deployment {
 			},
 		},
 	}
+
+	kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
+
+	return deployment
 }
 
 func (o *openTelemetryOperator) vpa() *vpaautoscalingv1.VerticalPodAutoscaler {
