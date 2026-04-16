@@ -14,6 +14,7 @@ import (
 	"github.com/go-logr/logr"
 	istiov1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/gardener/gardener/imagevector"
 	gardenletconfigv1alpha1 "github.com/gardener/gardener/pkg/apis/config/gardenlet/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -253,6 +255,13 @@ func (r *Reconciler) runReconcileSeedFlow(
 			deployVictoriaCRDs,
 			deployOpenTelemetryCRDs,
 		)
+		deployImagePullSecret = g.Add(flow.Task{
+			Name: "Deploying image pull secret from garden to seed",
+			Fn: func(ctx context.Context) error {
+				return r.deployImagePullSecret(ctx, seed)
+			},
+			Dependencies: flow.NewTaskIDs(syncPointCRDs),
+		})
 		_ = g.Add(flow.Task{
 			Name: "Deploying VPA for gardenlet",
 			Fn: func(ctx context.Context) error {
@@ -263,13 +272,13 @@ func (r *Reconciler) runReconcileSeedFlow(
 		deployGardenerResourceManager = g.Add(flow.Task{
 			Name:         "Deploying and waiting for gardener-resource-manager to be healthy",
 			Fn:           component.OpWait(c.gardenerResourceManager).Deploy,
-			Dependencies: flow.NewTaskIDs(syncPointCRDs),
+			Dependencies: flow.NewTaskIDs(syncPointCRDs, deployImagePullSecret),
 			SkipIf:       seedIsGarden,
 		})
 		deploySystemResources = g.Add(flow.Task{
 			Name:         "Deploying system resources",
 			Fn:           c.system.Deploy,
-			Dependencies: flow.NewTaskIDs(deployGardenerResourceManager),
+			Dependencies: flow.NewTaskIDs(deployGardenerResourceManager, deployImagePullSecret),
 		})
 		deployReferencedResources = g.Add(flow.Task{
 			Name: "Deploying referenced resources",
@@ -753,6 +762,50 @@ func (r *Reconciler) deployReferencedResources(ctx context.Context, seed *seedpk
 		r.GardenNamespace, r.GardenNamespace, seed.GetInfo(),
 	); err != nil {
 		return fmt.Errorf("failed to reconcile workload identity referenced resources: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Reconciler) deployImagePullSecret(ctx context.Context, seed *seedpkg.Seed) error {
+	var secretNames []string
+	for _, cred := range imagevector.AllContainerImagePullCredentials() {
+		if cred.Type == "StaticSecret" && cred.SecretName != nil {
+			secretNames = append(secretNames, *cred.SecretName)
+		}
+	}
+	if len(secretNames) == 0 {
+		return nil
+	}
+
+	gardenNamespace := gardenerutils.ComputeGardenNamespace(seed.GetInfo().Name)
+
+	for _, secretName := range secretNames {
+		// Read from seed-<seedname> namespace in garden cluster (where seed/secrets controller syncs it)
+		gardenSecret := &corev1.Secret{}
+		if err := r.GardenClient.Get(ctx, client.ObjectKey{Namespace: gardenNamespace, Name: secretName}, gardenSecret); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return fmt.Errorf("failed to get image pull secret %q from garden cluster: %w", secretName, err)
+		}
+
+		seedSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: r.GardenNamespace,
+			},
+		}
+		if _, err := controllerutils.GetAndCreateOrMergePatch(ctx, r.SeedClientSet.Client(), seedSecret, func() error {
+			seedSecret.Type = gardenSecret.Type
+			seedSecret.Data = gardenSecret.Data
+			seedSecret.Labels = map[string]string{
+				v1beta1constants.GardenRole: v1beta1constants.GardenRoleImagePullSecret,
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to create or patch image pull secret %q in seed cluster: %w", secretName, err)
+		}
 	}
 
 	return nil
