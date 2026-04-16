@@ -15,17 +15,18 @@ import (
 
 var (
 	//go:embed images.yaml
-	imagesYAML  string
-	imageVector imagevector.ImageVector
+	imagesYAML          string
+	imageVector         imagevector.ImageVector
+	imagePullCredential *imagevector.ImagePullCredential
 )
 
 func init() {
 	var err error
 
-	imageVector, err = imagevector.Read([]byte(imagesYAML))
+	imageVector, imagePullCredential, err = imagevector.Read([]byte(imagesYAML))
 	runtime.Must(err)
 
-	imageVector, err = imagevector.WithEnvOverride(imageVector, imagevector.OverrideEnv)
+	imageVector, imagePullCredential, err = imagevector.WithEnvOverride(imageVector, imagevector.OverrideEnv)
 	runtime.Must(err)
 }
 
