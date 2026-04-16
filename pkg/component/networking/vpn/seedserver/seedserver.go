@@ -557,6 +557,7 @@ func (v *vpnSeedServer) podTemplate(configMap *corev1.ConfigMap, secretCAVPN, se
 		template.Spec.Containers = append(template.Spec.Containers, exporterContainer)
 	}
 
+	kubernetesutils.InjectImagePullSecret(&template.Spec)
 	return template
 }
 

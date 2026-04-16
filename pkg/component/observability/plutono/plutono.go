@@ -728,6 +728,7 @@ func (p *plutono) getDeployment(providerConfigMap *corev1.ConfigMap, plutonoConf
 	}
 	utilruntime.Must(references.InjectAnnotations(deployment))
 
+	kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
 	return deployment
 }
 

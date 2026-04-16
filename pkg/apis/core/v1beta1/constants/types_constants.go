@@ -317,6 +317,8 @@ const (
 	GardenRoleOCICABundle = "oci-ca-bundle"
 	// GardenRoleObservability is the value of the GardenRole key indicating type 'observability'.
 	GardenRoleObservability = "observability"
+	// GardenRoleImagePullSecret is the value of the GardenRole key indicating type 'image-pull-secret'.
+	GardenRoleImagePullSecret = "image-pull-secret"
 
 	// ShootUID is an annotation key for the shoot namespace in the seed cluster,
 	// which value will be the value of `shoot.status.uid`

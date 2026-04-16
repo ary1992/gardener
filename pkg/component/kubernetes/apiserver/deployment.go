@@ -398,6 +398,7 @@ func (k *kubeAPIServer) reconcileDeployment(
 		}
 
 		utilruntime.Must(references.InjectAnnotations(deployment))
+		kubernetesutils.InjectImagePullSecret(&deployment.Spec.Template.Spec)
 		return nil
 	})
 	return err

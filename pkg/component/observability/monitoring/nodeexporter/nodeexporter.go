@@ -509,6 +509,7 @@ func (n *nodeExporter) computeResourcesData() (map[string][]byte, error) {
 		}
 	}
 
+	kubernetesutils.InjectImagePullSecret(&daemonSet.Spec.Template.Spec)
 	return registry.AddAllAndSerialize(
 		serviceAccount,
 		service,
