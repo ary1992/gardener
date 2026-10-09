@@ -51,6 +51,56 @@ Gardener treats Kubernetes clusters as cattle, not pets. The **Garden cluster** 
 
 ---
 
+## The Kubernetes Clusters in Gardener
+
+Gardener is "Kubernetes managing Kubernetes," so the word "cluster" is overloaded. There are **four distinct kinds of Kubernetes cluster**, and almost every confusion in Gardener traces back to mixing them up. Keep this table in mind for the rest of the document.
+
+| # | Cluster | Has real worker nodes? | What runs on it | Who/what talks to its kube-apiserver | How its kube-apiserver is exposed |
+|---|---|---|---|---|---|
+| 1 | **Runtime cluster** | Yes (real) | `gardener-operator`; and as pods: the entire virtual garden control plane, the Gardener control plane, etcd-druid, Istio, VPA, NGINX, observability | `gardener-operator`, etcd-druid, Istio — cluster-internal infra only. **Users never touch it.** | Its own native/internal endpoint (not Gardener-managed) |
+| 2 | **Virtual garden cluster** | **No** (synthetic — hosted control plane) | Nothing of its own; it is *served by* `virtual-garden-kube-apiserver` pods that physically run on the runtime cluster | Garden operators, the Dashboard, every **gardenlet**, and the Gardener control-plane components | `virtual-garden-kube-apiserver` is a **ClusterIP** Service, exposed externally only through the Istio IngressGateway in ns `virtual-garden-istio-ingress` (its own LB IP), routed by TLS SNI `garden.<domain>` |
+| 3 | **Seed cluster** (many; one per IaaS/region) | Yes (real) | `gardenlet`; and per shoot, the shoot control plane as pods in a `shoot--<project>--<name>` namespace; plus seed infra (etcd-druid, Istio, VPA, NGINX, DependencyWatchdog, observability) and the external extension-provider controllers | `gardenlet` (in-cluster SA), extension providers, resource-manager | Native endpoint for gardenlet (in-cluster); optional seed ingress via its own NGINX for observability |
+| 4 | **Shoot cluster** (many; the end-user clusters) | Yes (real VMs) — **but only the worker nodes** | Control plane runs as **pods on the Seed** (#3); only `kubelet`, CNI, kube-proxy, CoreDNS, vpn-shoot, node-agent, and user workloads run on the actual nodes | End users (kubectl), the shoot's own `kubelet`/components, Gardener's shoot-access tokens | Shoot `kube-apiserver` is a **ClusterIP** Service on the Seed, exposed externally only through the Seed Istio IngressGateway in ns `istio-ingress` (separate LB IP from #2), routed by TLS SNI `api.<shoot-domain>` |
+
+Key consequences of this layout:
+
+- A **Shoot cluster is "split"**: its control plane (kube-apiserver, etcd, controller-manager, scheduler) are pods in the Seed; its data plane (worker nodes) are cloud VMs. The two halves are joined only by the reversed VPN (see Networking).
+- The **virtual garden has no nodes at all**. "Deploying into the virtual garden" means a resource-manager running on the runtime cluster applies objects *through* the virtual garden kube-apiserver. All the pods still live on the runtime cluster.
+- **Clusters #2 and #4 are never reached directly** — both kube-apiservers are ClusterIP and sit behind *separate* Istio IngressGateways with *different* LoadBalancer IPs, distinguished purely by the TLS SNI hostname.
+- Two clusters can be **collapsed in practice**: the runtime cluster and the first Seed are often the same physical cluster, and a Seed can itself be a Shoot (a `ManagedSeed`). They remain logically distinct roles.
+
+```
+                        ┌───────────────────────────────────────────────┐
+                        │ (1) RUNTIME CLUSTER  (real nodes)              │
+   garden operator ────▶│   gardener-operator                           │
+   / Dashboard          │   ┌─────────────────────────────────────────┐ │
+   (SNI garden.<domain>)│   │ (2) VIRTUAL GARDEN  (no nodes; served by  │ │
+         │              │   │     pods that run HERE on the runtime)    │ │
+         └── Istio IGW ─┼──▶│   virtual-garden-kube-apiserver (ClusterIP)│ │
+          (vg-istio-    │   │   gardener-apiserver / -controller-manager │ │
+           ingress LB)  │   │   / -scheduler / -admission-controller     │ │
+                        │   └─────────────────────────────────────────┘ │
+                        └───────────────────────────────────────────────┘
+                                    ▲  gardenlet (X.509, via vg Istio IGW)
+                                    │
+   shoot owner ─────────┐  ┌────────┴──────────────────────────────────┐
+   (SNI api.<shoot>) ───┼─▶│ (3) SEED CLUSTER  (real nodes)             │
+          │             │  │   gardenlet                                │
+          └── Istio IGW ─┼─▶│   ns shoot--project--name:                │
+            (istio-      │  │     kube-apiserver (ClusterIP), etcd,      │
+             ingress LB) │  │     kube-ctrl-mgr, scheduler, vpn-seed-srv │
+                         │  └──────────────┬─────────────────────────────┘
+                         │   reversed VPN  │  (vpn-shoot dials OUT :8443)
+                         │                 ▼
+                         │  ┌────────────────────────────────────────────┐
+                         │  │ (4) SHOOT CLUSTER — worker nodes only       │
+                         │  │   kubelet, CNI, kube-proxy, CoreDNS,        │
+                         │  │   vpn-shoot, node-agent, user workloads     │
+                         │  └────────────────────────────────────────────┘
+```
+
+---
+
 ## Runtime Cluster vs Virtual Garden Cluster
 
 This is one of Gardener's most important architectural subtleties and the source of most confusion for newcomers.
@@ -108,15 +158,16 @@ The operator's `Garden` reconciler builds a flow graph with these ordered steps:
 2. Deploy runtime infra   → etcd-druid, Istio, VPA, NGINX, resource-manager (runtime)
 3. Deploy virtual etcds   → virtual-garden-etcd-main + virtual-garden-etcd-events
 4. Wait for etcds         → (etcd-druid reconciles them into StatefulSets)
-5. Deploy virtual APIServer Service  → LoadBalancer or ClusterIP
+5. Deploy virtual APIServer Service  → ClusterIP (exposed via Istio IngressGateway LB)
 6. Deploy virtual kube-apiserver     → wired to etcd-main service address
 7. Wait for virtual kube-apiserver   → health check passes
-8. Deploy virtual kube-ctrl-mgr      → connects to virtual kube-apiserver
-9. Deploy virtual resource-manager  → manages tokens inside virtual cluster
-10. Deploy gardener-apiserver        → aggregated server in virtual cluster
-11. Deploy gardener-{controller,scheduler,admission}
-12. Initialize virtual cluster client → GardenClientMap.GetClient(...)
-13. Deploy extensions, configure DNS records, etc.
+8. Deploy virtual kube-apiserver SNI → Istio Gateway/VirtualService in virtual-garden-istio-ingress
+9. Deploy virtual kube-ctrl-mgr      → connects to virtual kube-apiserver
+10. Deploy virtual resource-manager  → applies ManagedResources INTO the virtual cluster
+11. Deploy gardener-apiserver        → aggregated server (ClusterIP + virtual-cluster Endpoints)
+12. Deploy gardener-{controller,scheduler,admission}
+13. Initialize virtual cluster client → GardenClientMap.GetClient(...)
+14. Deploy extensions, configure DNS records, dashboard, discovery-server, etc.
 ```
 
 ### Communication Between Operator and Both Clusters
@@ -147,16 +198,19 @@ The virtual garden kube-apiserver is reachable at `api.<virtual-cluster-domain>`
 
 ### `gardener-apiserver` — Aggregated API Server
 
-This is a **full Kubernetes-style API server** built using `k8s.io/apiserver`, not just a webhook or CRD. It registers with the runtime cluster's `kube-apiserver` via `APIService` objects so that `kubectl` speaking to the runtime cluster transparently reaches Gardener's own API groups:
+This is a **full Kubernetes-style API server** built using `k8s.io/apiserver`, not just a webhook or CRD. It registers with the **virtual garden** `kube-apiserver` (not the runtime cluster's) via `APIService` objects, so that `kubectl` speaking to the virtual garden transparently reaches Gardener's own API groups:
 
 ```
-APIService: v1beta1.core.gardener.cloud          → gardener-apiserver Service
+APIService: v1beta1.core.gardener.cloud          → kube-system/gardener-apiserver (virtual cluster)
+APIService: v1.core.gardener.cloud
 APIService: v1alpha1.seedmanagement.gardener.cloud
 APIService: v1alpha1.operations.gardener.cloud
 APIService: v1alpha1.security.gardener.cloud
 ```
 
-Objects like `Shoot`, `Seed`, `CloudProfile`, `Project`, `BackupBucket` are **stored in etcd** (the runtime cluster's etcd or a dedicated one), served by this aggregated server, and protected by built-in admission plugins registered in [`plugin/pkg/plugins.go`](../../plugin/pkg/plugins.go).
+**Two-layer Service wiring** (confirmed in [`pkg/component/gardener/apiserver/`](../../pkg/component/gardener/apiserver/)): the `gardener-apiserver` pods run on the runtime cluster, so there is a `gardener-apiserver` **ClusterIP** Service in the `garden` namespace of the *runtime* cluster. In the *virtual* cluster, a **no-selector** `gardener-apiserver` Service in `kube-system` plus manually-managed `Endpoints`/`EndpointSlices` point at that runtime ClusterIP. This works because the virtual-garden kube-apiserver pods themselves run on the runtime cluster and can reach runtime ClusterIPs directly. `gardener-apiserver` has **no** Istio gateway or LB of its own — all external access flows through the virtual garden kube-apiserver's aggregation layer.
+
+Objects like `Shoot`, `Seed`, `CloudProfile`, `Project`, `BackupBucket` are **stored in `virtual-garden-etcd-main`** (the virtual garden's dedicated etcd, running as pods on the runtime cluster), served by this aggregated server, and protected by built-in admission plugins registered in [`plugin/pkg/plugins.go`](../../plugin/pkg/plugins.go).
 
 Admission plugins run **in-process** (not via webhooks) and include ~25 plugins: `ShootValidator`, `SeedValidator`, `ShootDNS`, `ShootQuotaValidator`, `ResourceReferenceManager`, `DeletionConfirmation`, `FinalizerRemoval`, and others.
 
@@ -397,42 +451,77 @@ Deployed into Seed clusters. Extension providers watch and reconcile these:
 
 ## Networking Architecture
 
-### The Central Challenge
+### Reversed VPN Tunnel
 
-A Shoot's **control plane runs in the Seed** (as Pods), but the **worker nodes run in the cloud** (different network, potentially different region). The kube-apiserver Pod must reach worker nodes (for exec/logs/metrics) and worker nodes must reach the kube-apiserver.
+A Shoot's **control plane runs in the Seed** (as Pods), but the **worker nodes run in the cloud** (different network, potentially different region). The kube-apiserver Pod must reach worker nodes (for `exec`/`logs`/metrics) and worker nodes must reach the kube-apiserver.
 
-### VPN Tunnel
+Gardener uses a **reversed VPN** design: the connection is always **initiated from the Shoot outward**, so worker nodes never need to accept an inbound port and the Seed never needs a route into the cloud network. The data path runs *through the Seed's Istio IngressGateway* — there is **no direct socket** between `vpn-seed-server` and `vpn-shoot`.
 
 ```
-Seed cluster:
-  shoot--project--name/vpn-seed-server (StatefulSet/Deployment)
-    │  ← OpenVPN or WireGuard tunnel
+Shoot cluster (kube-system):
+  vpn-shoot (DaemonSet/StatefulSet, OpenVPN *client*)
+    │  dials OUTBOUND: HTTP CONNECT to  api.<shoot-domain>:8443
+    │  header  X-Gardener-Destination: outbound|1194||vpn-seed-server.<ns>.svc...
     ▼
-Shoot worker nodes:
-  kube-system/vpn-shoot (DaemonSet)
+Seed Istio IngressGateway  (ns istio-ingress, port 8443 = HTTP CONNECT proxy)
+    │  routes the CONNECT by the X-Gardener-Destination header
+    ▼
+Seed cluster (shoot--project--name):
+  vpn-seed-server  envoy sidecar :9443  →  OpenVPN :1194
+    │  OpenVPN session now established over that tunnel
+    ▼
+  Routes installed for the Shoot pod / service / node CIDRs
+  so kube-apiserver → pod/node IPs flows back down the same tunnel
 ```
 
-Implemented in [`pkg/component/networking/vpn/seedserver/`](../../pkg/component/networking/vpn/seedserver/) and [`pkg/component/networking/vpn/shoot/`](../../pkg/component/networking/vpn/shoot/).
+Implemented in [`pkg/component/networking/vpn/seedserver/`](../../pkg/component/networking/vpn/seedserver/) and [`pkg/component/networking/vpn/shoot/`](../../pkg/component/networking/vpn/shoot/). The transport is **OpenVPN** (not WireGuard). Key ports: OpenVPN `1194`, vpn-seed-server envoy `9443`, Istio HTTP-CONNECT proxy `8443` (legacy `8132`).
 
-The tunnel is configured with the Shoot's pod/service/node CIDRs. Traffic from kube-apiserver to pod IPs routes through the tunnel. For **HA Shoots**, multiple VPN paths are used (one per zone) with load balancing.
+For **HA Shoots** (`spec.controlPlane.highAvailability` or the HA-VPN annotation), `vpn-seed-server` becomes a 2-replica StatefulSet (`vpn-seed-server-0/-1`), `vpn-shoot` runs multiple indexed clients plus a `tunnel-controller` sidecar for health/failover, and the `X-Gardener-Destination` header targets the specific indexed server.
 
-An **Envoy proxy sidecar** (`apiserverproxy`) runs on Shoot nodes and proxies kube-apiserver traffic back through the tunnel, so `kubectl exec` works even when the Shoot API server is not directly reachable from the node.
+### apiserver-proxy (worker → kube-apiserver path)
+
+`apiserver-proxy` ([`pkg/component/networking/apiserverproxy/`](../../pkg/component/networking/apiserverproxy/)) is a **DaemonSet** (an Envoy proxy, one pod per node in `kube-system`) — *not* a sidecar, and **not part of the VPN**. It lets in-cluster clients (notably `kubelet`) reach the kube-apiserver even though the apiserver's real Service lives in the Seed network:
+
+```
+kubelet / in-cluster client
+  │  connects to the advertise IP 240.x.y.z:443 (bound on the node's apiserver-proxy iface)
+  ▼
+apiserver-proxy (Envoy, host network, same node)
+  │  HTTP CONNECT to  api.<shoot-domain>:8443  (Seed Istio IGW)
+  │  header  X-Gardener-Destination: outbound|443||kube-apiserver.<ns>.svc...
+  ▼
+Seed Istio IngressGateway (:8443)  →  Shoot kube-apiserver (ClusterIP, Seed)
+```
+
+The apiserver ClusterIP (from the Shoot service CIDR) is remapped into the reserved `240.0.0.0/8` range and advertised on each node, so the proxy is always on the data path. This path uses the **same Istio HTTP-CONNECT proxy on :8443 as the reversed VPN, but it is a distinct flow — kubelet traffic does not travel over the OpenVPN tunnel.** `apiserver-proxy` is deployed only when the shoot uses DNS (`ShootUsesDNS()`).
 
 ### Istio-based API Server Exposure
 
-Shoot API servers are exposed externally via **Istio** in the Seed:
+Both the shoot `kube-apiserver` and the `virtual-garden-kube-apiserver` are **ClusterIP** Services. Neither has its own LoadBalancer. They are reached from outside only through an **Istio IngressGateway**, and there are **two independent ingress gateways** with **different LoadBalancer IPs**:
+
+| Serves | IngressGateway namespace | Deployed by | SNI hostname |
+|---|---|---|---|
+| Shoot kube-apiservers | `istio-ingress` (+ `istio-ingress--<zone>` for zonal/HA) | gardenlet (seed reconciler) | `api.<shoot-domain>` |
+| virtual-garden-kube-apiserver | `virtual-garden-istio-ingress` | gardener-operator | `garden.<domain>` |
 
 ```
 External client
       │
       ▼  HTTPS/TLS
-Istio IngressGateway (Seed, one per zone in HA)
-      │  SNI routing (TLS passthrough)
+Istio IngressGateway  (one LB IP serves MANY apiservers)
+      │  reads TLS SNI server name → selects per-apiserver Istio Gateway/VirtualService
       ▼
-Shoot kube-apiserver Pod (in Seed namespace)
+kube-apiserver Pod (ClusterIP Service → pod)
 ```
 
-Istio uses **SNI-based routing** (`VirtualService` + `DestinationRule`) to route traffic to the correct Shoot's API server based on the TLS SNI header — so multiple Shoots share a single Load Balancer IP. This is configured in [`pkg/component/networking/istio/`](../../pkg/component/networking/istio/).
+Istio uses **SNI-based routing** (`Gateway` + `VirtualService` + `DestinationRule`, created per apiserver in its namespace) so that many apiservers share a single LB IP, distinguished only by the TLS server name on the ClientHello.
+
+**TLS mode depends on the `IstioTLSTermination` feature gate** (Beta, default **enabled** on current `master`):
+
+- **With `IstioTLSTermination` (default):** the gateway terminates TLS using `OPTIONAL_MUTUAL` mTLS and forwards to the apiserver over mTLS. A Lua `EnvoyFilter` parses the client cert and sets `X-Remote-User`/`X-Remote-Group` for the apiserver's authenticating-proxy, after stripping any client-supplied values.
+- **Without it (legacy):** the gateway does pure **TLS passthrough** (L4) — the connection is forwarded opaquely to the apiserver ClusterIP by SNI and TLS terminates at the apiserver itself.
+
+Configured in [`pkg/component/networking/istio/`](../../pkg/component/networking/istio/) and [`pkg/component/kubernetes/apiserverexposure/`](../../pkg/component/kubernetes/apiserverexposure/). The same gateways also expose port **8443** (HTTP CONNECT) used by the reversed VPN and apiserver-proxy (see Networking → Reversed VPN).
 
 The `ExposureClass` API type allows different exposure strategies per Shoot (e.g., public vs. private, different ingress gateways).
 
@@ -514,19 +603,19 @@ This section traces every communication path between the three tiers.
 User (kubectl)
   │  HTTPS, SNI: api.<shoot-domain>
   ▼
-Cloud Load Balancer (Seed)
-  │  TCP passthrough (L4)
+Cloud Load Balancer (Seed, ns istio-ingress)
+  │  TCP (L4)
   ▼
 Istio IngressGateway (Seed)
-  │  SNI-based TLS passthrough → routes by server name
+  │  default: mTLS termination (IstioTLSTermination on) — or legacy SNI passthrough
   ▼
-kube-apiserver Pod (in Shoot namespace, Seed cluster)
-  │  TLS terminates here — certificate signed by Shoot cluster CA
+kube-apiserver Pod (ClusterIP Service, in Shoot namespace, Seed cluster)
+  │  authn via client cert / token; cert chain tied to Shoot cluster CA
   ▼
 etcd (in same Shoot namespace, managed by etcd-druid)
 ```
 
-The SNI header on the TLS ClientHello is what Istio reads. Multiple Shoots share a single Load Balancer IP; Istio routes each connection to the correct namespace based on the full server name.
+The SNI header on the TLS ClientHello is what Istio routes on. Multiple Shoots share a single Load Balancer IP; Istio selects the correct namespace's apiserver by the full server name. With `IstioTLSTermination` enabled (current default), TLS terminates at the gateway and is re-established to the apiserver over mTLS; otherwise the gateway forwards the connection opaquely and TLS terminates at the apiserver.
 
 ### 2. Shoot kube-apiserver → Shoot Worker Node (exec/logs/port-forward)
 
@@ -535,34 +624,33 @@ kube-apiserver Pod (Seed)
   │  HTTPS to pod/node IP — these IPs are in the Shoot's pod/node CIDR
   ▼
 vpn-seed-server (same Seed namespace)
-  │  tunneled through OpenVPN/WireGuard
+  │  down the OpenVPN tunnel that vpn-shoot already dialed open (reversed VPN)
   ▼
-vpn-shoot (DaemonSet in Shoot kube-system)
+vpn-shoot (DaemonSet/StatefulSet in Shoot kube-system)
   │  routes to pod/node IPs inside the Shoot network
   ▼
 Worker node / Pod
 ```
 
-The Shoot pod and node CIDRs are routed exclusively through the VPN. The kube-apiserver never has a direct route to the worker network.
+The Shoot pod and node CIDRs are routed exclusively through the VPN. The kube-apiserver never has a direct route to the worker network. Note the tunnel itself was established *outbound from the shoot* (see Reversed VPN); this flow just rides it in the return direction.
 
 ### 3. Worker Node → Shoot API Server (kubelet, kube-proxy)
 
 ```
 kubelet / kube-proxy (on worker node)
-  │  HTTPS to internal DNS: api.<uid>.internal.gardener.cloud
+  │  connects to the advertise IP 240.x.y.z:443 (bound on the node by apiserver-proxy)
   ▼
-apiserverproxy (Envoy sidecar on each node, kube-system DaemonSet)
-  │  proxies to the Seed's VPN tunnel endpoint
+apiserver-proxy (Envoy DaemonSet on each node, kube-system)
+  │  HTTP CONNECT to  api.<shoot-domain>:8443  (Seed Istio IngressGateway)
+  │  header  X-Gardener-Destination: outbound|443||kube-apiserver.<ns>.svc...
   ▼
-vpn-shoot → vpn-seed-server (reverse direction)
+Seed Istio IngressGateway (:8443 HTTP CONNECT proxy)
   │
   ▼
-kube-apiserver Pod (Seed)
+kube-apiserver Pod (ClusterIP, Seed)
 ```
 
-Workers never have a direct route to the kube-apiserver Pod's IP. The `apiserverproxy` ([`pkg/component/networking/apiserverproxy/`](../../pkg/component/networking/apiserverproxy/)) intercepts all traffic to the API server's internal DNS name and proxies it through the VPN tunnel.
-
-The internal domain (`api.<uid>.internal.gardener.cloud`) resolves to the loopback/node-local address where `apiserverproxy` listens, so the proxy is always on the data path.
+**This path does NOT use the VPN.** Workers reach the apiserver through the Istio HTTP-CONNECT proxy on port 8443 — the same gateway port the reversed VPN uses, but a separate flow. The `apiserver-proxy` ([`pkg/component/networking/apiserverproxy/`](../../pkg/component/networking/apiserverproxy/)) is a DaemonSet (one Envoy per node), it binds the apiserver's remapped `240.0.0.0/8` advertise IP on the node, and it is only deployed when the shoot uses DNS.
 
 ### 4. Gardenlet → Virtual Garden (watches, status updates)
 
@@ -723,11 +811,12 @@ Each Seed gets a full observability stack, deployed by gardenlet, for monitoring
 
 | Component | Role |
 |---|---|
-| **Prometheus / VictoriaMetrics** | Scrapes metrics from Shoot control-plane Pods in the Seed |
+| **Prometheus / VictoriaMetrics** | Scrapes metrics from Shoot control-plane Pods in the Seed (cache / seed / aggregate Prometheis) |
 | **Alertmanager** | Routes firing alerts (per-Shoot and per-Seed alert rules) |
 | **Plutono** | Gardener's Grafana fork; dashboards for Shoot and Seed health |
-| **Loki** | Log aggregation for Shoot control-plane Pod logs |
-| **OpenTelemetry Collector** | Traces from control-plane components |
+| **Vali / VictoriaLogs** | Log aggregation for Shoot control-plane Pod logs (Vali is a Loki fork; VictoriaLogs behind the `VictoriaLogsBackend` gate) |
+| **FluentBit (+ Fluent Operator)** | Collects and ships logs into Vali/VictoriaLogs |
+| **OpenTelemetry Collector** | Traces/telemetry from control-plane components |
 
 These are deployed via `ManagedResource` objects into the Seed. Access is behind the Seed-level NGINX Ingress, protected by basic auth (via `IstioBasicAuthServer` for the Istio path).
 
@@ -843,14 +932,16 @@ Registered in [`plugin/pkg/plugins.go`](../../plugin/pkg/plugins.go):
 ## Component Interaction Summary
 
 ```
-User
-  │ kubectl / Gardener Dashboard
+User / gardenlet
+  │ kubectl / Gardener Dashboard — HTTPS, SNI garden.<domain>
   ▼
-kube-apiserver (runtime cluster)
-  │  routes *.gardener.cloud groups via APIService
+virtual-garden-istio-ingress  Istio IngressGateway (runtime cluster LB)
+  ▼
+virtual-garden-kube-apiserver (ClusterIP, pods on runtime cluster)
+  │  routes *.gardener.cloud groups via APIService aggregation
   ▼
 gardener-apiserver
-  │  stores Shoot/Seed/CloudProfile/etc. in etcd
+  │  stores Shoot/Seed/CloudProfile/etc. in virtual-garden-etcd-main
   │  runs admission plugins in-process
   │
   ├──► gardener-admission-controller (webhooks on Garden cluster)
@@ -870,7 +961,7 @@ gardener-apiserver
          ├──► VPN components (vpn-seed-server ↔ vpn-shoot on nodes)
          ├──► Istio IngressGateway (routes external traffic to Shoot API servers via SNI)
          ├──► NGINX Ingress (HTTP routing for Seed-internal observability UIs)
-         ├──► Observability (Prometheus, Alertmanager, Plutono, Loki per Seed)
+         ├──► Observability (Prometheus, Alertmanager, Plutono, Vali/VictoriaLogs per Seed)
          ├──► VPA (right-sizes Shoot control-plane Pods)
          ├──► NetworkPolicies (isolate Shoot namespaces in Seed)
          └──► OperatingSystemConfig secrets → gardener-node-agent on each VM
